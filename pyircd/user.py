@@ -28,6 +28,7 @@ class User:
         self.channels = []
 
     def send_opening_numerics(self):
+        """ Send the opening numerics for a new connection."""
         self.send_numeric(numerics.RPL_WELCOME, 
             [
                 self.nick,
@@ -88,7 +89,22 @@ class User:
 
     def handle_join(self, msg):
         """Handle the user attempting to join a channel"""
-        cmd, channel = irc_msg_split(msg)
+        parts = irc_msg_split(msg)
+        if len(parts) == 2:
+            cmd, channel = parts
+        elif len(parts) >= 3:
+            # >= to Handle some clients (libpurple) adding extra params
+            # For some reason, libpurple sends join messages in the form
+            # JOIN #channel nick
+            # or
+            # JOIN #channel key nick
+            # No docs mention an extra param.
+            cmd, channel, key = parts[:3]
+        else: 
+            self.send_numeric(
+                numerics.ERR_NEEDMOREPARAMS,
+                ['JOIN']
+            )
         try:
             self.server.join_user_to_channel(self, channel)
         except KeyError:
@@ -142,15 +158,18 @@ class User:
             # TODO handle setting channel topics
 
     def handle_who(self, msg):
+        """Handle recieving a WHO message."""
         parts = irc_msg_split(msg)
         if len(parts) == 2:
             cmd, channel = parts
             self.server.get_channel(channel).send_who(self)
 
     def handle_whois(self, msg):
+        """Handle a WHOIS message being recieved."""
         parts = irc_msg_split(msg)
-        if len(parts) == 2:
-            cmd, targets = parts
+        if len(parts) >= 2: 
+            # Handle some clients adding extra params.
+            cmd, targets = parts[:2]
             for target in targets.split(','):
                 self.server.send_whois(target, self)
 

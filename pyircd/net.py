@@ -44,6 +44,7 @@ class IRCNet(asyncore.dispatcher):
                     self.channels[channel].part(user)
 
     def remove_channel(self, channel):
+        """Remove a channel from the server."""
         if channel.name in self.channels:
             del self.channels[channel.name]
 
@@ -101,6 +102,7 @@ class IRCNet(asyncore.dispatcher):
             )
     
     def send_whois_data(self, whois_target, reply_user):
+        """Send the reply to a WHOIS message."""
         reply_user.send_numeric(
             numerics.RPL_WHOISUSER,
             [
