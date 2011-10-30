@@ -57,8 +57,8 @@ class IRCNet(asyncore.dispatcher):
 
         user.channels.append(self.channels[channel])
 
-        user.send_channel_topic(channel)
-        user.send_channel_list(channel)
+        self.channels[channel].send_topic(user)
+        self.channels[channel].send_user_list(user)
 
     def get_channel(self, channel):
         """Get the channel object given a channel name.

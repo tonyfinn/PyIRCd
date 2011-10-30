@@ -56,6 +56,17 @@ class Channel:
             ]
         )
 
+    def send_user_list(self, target):
+        """Send a user the list of people in this channel."""
+        nicks = [user.nick for user in self]
+        nick_str = ' '.join(nicks)
+        target.send_numeric(numerics.RPL_NAMREPLY, [self.name, nick_str])
+        target.send_numeric(numerics.RPL_ENDOFNAMES, [self.name])
+
+    def send_topic(self, target):
+        """Send the current topic to a user."""
+        target.send_numeric(numerics.RPL_TOPIC, [self.name, self.topic])
+
     def __contains__(self, user):
         return user in self.users
 

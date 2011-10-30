@@ -154,19 +154,6 @@ class User:
             for target in targets.split(','):
                 self.server.send_whois(target, self)
 
-    def send_channel_list(self, channel_name):
-        """Send the list of people in a channel to a user"""
-        channel = self.server.get_channel(channel_name)
-        nicks = [user.nick for user in channel]
-        nick_str = ' '.join(nicks)
-        self.send_numeric(numerics.RPL_NAMREPLY, [channel_name, nick_str])
-        self.send_numeric(numerics.RPL_ENDOFNAMES, [channel_name])
-
-    def send_channel_topic(self, channel_name):
-        """Send the user information about a channel topic"""
-        channel = self.server.get_channel(channel_name)
-        self.send_numeric(numerics.RPL_TOPIC, [channel_name, channel.topic])
-
     def send_numeric(self, numeric, sparams, source=None):
         """Send a numeric command to the user"""
         self.send_cmd(
