@@ -11,7 +11,7 @@ class Channel:
         """Join a user to the channel"""
         self.users.append(user)
         for cuser in self.users:
-            cuser.send_cmd('JOIN', [self.name, user.nick], source=user.identifier)
+            cuser.send_cmd('JOIN', [self.name], source=user.identifier)
 
     def part(self, user, msg=None):
         """Remove a user from the channel list."""

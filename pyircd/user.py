@@ -92,13 +92,7 @@ class User:
         parts = irc_msg_split(msg)
         if len(parts) == 2:
             cmd, channel = parts
-        elif len(parts) >= 3:
-            # >= to Handle some clients (libpurple) adding extra params
-            # For some reason, libpurple sends join messages in the form
-            # JOIN #channel nick
-            # or
-            # JOIN #channel key nick
-            # No docs mention an extra param.
+        elif len(parts) == 3:
             cmd, channel, key = parts[:3]
         else: 
             self.send_numeric(
