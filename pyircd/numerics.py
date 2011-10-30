@@ -39,16 +39,16 @@ RPL_ENDOFWHOIS = NumericReply(318, "{} :End of WHOIS list", True)
 RPL_WHOISCHANNELS = NumericReply(319, "{} :{}", True)
 
 # Channel name
-RPL_NOTOPIC = NumericReply(331, "{}: No topic is set", True)
+RPL_NOTOPIC = NumericReply(331, "{} :No topic is set", True)
 
 # Channel name, topic
-RPL_TOPIC = NumericReply(332, "{}: {}", True)
+RPL_TOPIC = NumericReply(332, "{} :{}", True)
 
 # Channel, user, host, server, nick, H is for here/gone, realname
-RPL_WHOREPLY = NumericReply(352, "{} {} {} {} {} H :0 {}", True)
+RPL_WHOREPLY = NumericReply(352, "{} {} {} {} {} H{} :0 {}", True)
 
 # WHO target
-RPL_ENDOFWHO = NumericReply(315, "{}: End of WHO List", True)
+RPL_ENDOFWHO = NumericReply(315, "{} :End of WHO List", True)
 
 # Channel name, space seperate list of nicks
 RPL_NAMREPLY = NumericReply(353, "= {} :{}", True)
@@ -68,10 +68,14 @@ RPL_ENDOFMOTD = NumericReply(376, ":End of MOTD", True)
 ERR_NOSUCHNICK = NumericReply(401, "{} :No such nick/channel", True)
 
 # Channel name
-ERR_NOSUCHCHANNEL = NumericReply(403, "{}: No such channel", True)
+ERR_NOSUCHCHANNEL = NumericReply(403, "{} :No such channel", True)
 
 # Command attempted
-ERR_NEEDMOREPARAMS = NumericReply(461, "{}: Not enough parameters", True)
+ERR_NEEDMOREPARAMS = NumericReply(461, "{} :Not enough parameters", True)
 
 # Nick
 ERR_NICKNAMEINUSE = NumericReply(433, "{} :Nickname already in use", True)
+
+# Channel
+ERR_CHANOPRIVSNEEDED = NumericReply(
+        482, "{} :You're not channel operator", True)

@@ -1,6 +1,26 @@
 from pyircd.ircutils import *
 from pyircd import numerics
 
+import functools
+
+def min_params(num_params):
+    """Reply with ERR_NEEDMOREPARAMS if too few parameters are sent in an irc
+    message.
+    """
+    def decorate(func):
+        @functools.wraps(func)
+        def handler(self, msg):
+            parts = irc_msg_split(msg)
+            if len(parts) < num_params:
+                self.send_numeric(
+                    numerics.ERR_NEEDMOREPARAMS,
+                    [parts[0]]
+                )
+            else:
+                func(self, msg)
+        return handler
+    return decorate
+
 class User:
 
     def __init__(self, nick, username, real_name, host, server, connection):
@@ -72,9 +92,10 @@ class User:
         if command in self.handle_commands:
             self.handle_commands[command](msg)
     
+    @min_params(3)
     def handle_privmsg(self, msg):
         """Handle recieving a message from the user"""
-        cmd, target_str, message = irc_msg_split(msg)
+        cmd, target_str, message = irc_msg_split(msg)[:3]
         targets = target_str.split(',')
         for target in targets:
             try:
@@ -87,24 +108,21 @@ class User:
                 # TODO Put numeric response here. 
                 pass
 
+    @min_params(2)
     def handle_join(self, msg):
         """Handle the user attempting to join a channel"""
         parts = irc_msg_split(msg)
-        if len(parts) == 2:
-            cmd, channel = parts
-        elif len(parts) == 3:
-            cmd, channel, key = parts[:3]
-        else: 
-            self.send_numeric(
-                numerics.ERR_NEEDMOREPARAMS,
-                ['JOIN']
-            )
+        
+        cmd, channel = parts[:2]
+        if len(parts) > 2:
+            key = parts[3]
         try:
             self.server.join_user_to_channel(self, channel)
         except KeyError:
             ### TODO Put numeric response here.
             pass
 
+    @min_params(2)
     def handle_part(self, msg):
         """Handle the user leaving a channel"""
         parts = irc_msg_split(msg)
@@ -141,23 +159,36 @@ class User:
             for channel in self.server.channels:
                 self.send_channel_list(channel)
 
+    @min_params(2)
     def handle_topic(self, msg):
-        """Handle a request for a channel topic"""
+        """Handle a request for a channel topic or topic change"""
         parts = irc_msg_split(msg)
-        if len(parts) == 2:
-            cmd, channel = parts
-            self.send_channel_topic(channel)
-        elif len(parts) == 3:
-            cmd, channel, message = parts
-            # TODO handle setting channel topics
+        cmd, channel = parts[:2]
+        try:
+            chan_obj = self.server.get_channel(channel)
+            if len(parts) == 2:
+                chan_obj.send_topic(self)
+            else:
+                new_topic = parts[2]
+                chan_obj.try_set_topic(self, new_topic)
+        except KeyError:
+            self.send_numeric(
+                numerics.ERR_NOSUCHCHANNEL,
+                [channel]
+            )
 
+    def handle_mode(self, msg):
+        """Handle a mode message."""
+        pass
+
+    @min_params(2)
     def handle_who(self, msg):
         """Handle recieving a WHO message."""
         parts = irc_msg_split(msg)
-        if len(parts) == 2:
-            cmd, channel = parts
-            self.server.get_channel(channel).send_who(self)
+        cmd, channel = parts[:2]
+        self.server.get_channel(channel).send_who(self)
 
+    @min_params(2)
     def handle_whois(self, msg):
         """Handle a WHOIS message being recieved."""
         parts = irc_msg_split(msg)
@@ -201,3 +232,4 @@ class User:
 
     def __str__(self):
         return self.identifier
+

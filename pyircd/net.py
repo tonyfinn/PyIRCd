@@ -55,6 +55,7 @@ class IRCNet(asyncore.dispatcher):
         elif is_channel_name(channel):
             self.channels[channel] = Channel(channel, self)
             self.channels[channel].join(user)
+            self.channels[channel].add_mode_to_user('o', user)
 
         user.channels.append(self.channels[channel])
 

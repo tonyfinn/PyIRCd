@@ -7,8 +7,5 @@ server features.
 * Messaging (channels and PMs)
 * WHOIS, NAMES, WHO
 * Message of the Day
-
-=== Known Issues ===
-* Pidgin (and other libpurple clients) can not join channels - for some
-  reason they send the user's nick as an extra parameter in JOIN
-  commands.
+* Changing topics (only for first user of a channel as MODE isn't done
+  yet.)
