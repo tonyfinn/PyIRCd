@@ -1,0 +1,7 @@
+{
+	"hostname": "localhost",
+	"port": 6667,
+	"motd": "Welcome!\nPyIRCd testing",
+	"netname": "CobraIRC",
+	"info": "Testing server for Cobra"
+}
