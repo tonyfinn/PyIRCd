@@ -23,6 +23,9 @@ RPL_MYINFO = NumericReply(4, "{} {} {} {}")
 RPL_ISUPPORT = NumericReply(5, "PREFIX=(ov)@+ CHANTYPES=#& NETWORK={}"
 " CASEMAPPING=ascii :are supported by this server", True)
 
+# Modes
+RPL_UMODEIS = NumericReply(221, "+{}")
+
 # nick, user, host, realname
 RPL_WHOISUSER = NumericReply(311, "{} {} {} * :{}", True)
 
@@ -37,6 +40,9 @@ RPL_ENDOFWHOIS = NumericReply(318, "{} :End of WHOIS list", True)
 
 # nick, space seperated channel list
 RPL_WHOISCHANNELS = NumericReply(319, "{} :{}", True)
+
+# Channel, modes
+RPL_CHANNELMODEIS = NumericReply(324, "{} +{}")
 
 # Channel name
 RPL_NOTOPIC = NumericReply(331, "{} :No topic is set", True)
@@ -78,4 +84,7 @@ ERR_NICKNAMEINUSE = NumericReply(433, "{} :Nickname already in use", True)
 
 # Channel
 ERR_CHANOPRIVSNEEDED = NumericReply(
-        482, "{} :You're not channel operator", True)
+    482, "{} :You're not channel operator", True)
+
+ERR_USERSDONTMATCH = NumericReply(
+    502, ":Cannot change mode for other users", True)

@@ -32,7 +32,8 @@ class User:
             'NAMES': self.handle_names,
             'TOPIC': self.handle_topic,
             'WHO': self.handle_who,
-            'WHOIS': self.handle_whois
+            'WHOIS': self.handle_whois,
+            'MODE': self.handle_mode
         }
 
         self.nick = nick
@@ -46,6 +47,7 @@ class User:
         self.server.send_motd(self)
         self.server.send_isupport(self)
         self.channels = []
+        self.modes = []
 
     def send_opening_numerics(self):
         """ Send the opening numerics for a new connection."""
@@ -77,6 +79,12 @@ class User:
                 "",
                 ""
             ]
+        )
+
+    def send_own_mode(self):
+        self.send_numeric(
+            numerics.RPL_UMODEIS,
+            [''.join(self.modes)]
         )
 
     @property
@@ -177,9 +185,50 @@ class User:
                 [channel]
             )
 
+    @min_params(2)
     def handle_mode(self, msg):
         """Handle a mode message."""
-        pass
+        parts = irc_msg_split(msg)
+        if is_channel_name(parts[1]):
+            self.handle_channel_mode(parts)
+        else:
+            self.handle_user_mode(parts)
+
+    def handle_channel_mode(self, msg_parts):
+        """Handle a channel mode change attempt."""
+        channel = msg_parts[1]
+        try:
+            chan_obj = self.server.get_channel(channel)
+        except KeyError:
+            self.send_numeric(
+                numerics.ERR_NOSUCHCHANNEL,
+                [channel]
+            )
+            return
+        if len(msg_parts) == 2:
+            chan_obj.send_mode_info(self)
+        else:
+            chan_obj.try_mode_changes(self, msg_parts[2])
+
+    def handle_user_mode(self, msg_parts):
+        cmd, nick = msg_parts[:2]
+        if nick != self.nick:
+            self.send_numeric(numerics.ERR_USERSDONTMATCH)
+            return
+        elif len(msg_parts) == 2:
+            self.send_own_mode()
+        else:
+            modes = msg_parts[2]
+            if modes[0] == '+':
+                adding = True
+            elif modes[0] == '-':
+                removing = True
+            for mode in modes[1:]:
+                if self.can_set_own_mode(mode):
+                    if adding:
+                        self.modes.append(mode)
+                    else:
+                        self.modes.remove(mode)
 
     @min_params(2)
     def handle_who(self, msg):
@@ -198,11 +247,17 @@ class User:
             for target in targets.split(','):
                 self.server.send_whois(target, self)
 
-    def send_numeric(self, numeric, sparams, source=None):
+    def send_numeric(self, numeric, sparams=None, source=None):
         """Send a numeric command to the user"""
+        if sparams is None:
+            params = [self.nick]
+        else:
+            message = numeric.message.format(*sparams)
+            params = [self.nick] + irc_msg_split(message, False)
+
         self.send_cmd(
             numeric.num_str,
-            [self.nick] + irc_msg_split(numeric.message.format(*sparams), False),
+            params,
             numeric.final_multi, 
             source
         )
@@ -222,6 +277,10 @@ class User:
     def msg(self, source, channel, msg):
         """Send a message to the user"""
         self.send_cmd('PRIVMSG', [channel, msg], True, source.identifier)
+
+    def can_set_own_mode(self, mode):
+        """Check if a user can set a mode on themselves."""
+        return mode not in ['o', 'O']
 
     def __str__(self):
         return self.identifier

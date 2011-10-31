@@ -40,13 +40,59 @@ class Channel:
         if len(self.users) == 0:
             self.server.remove_channel(self)
 
-    def add_mode(self, mode):
+    def add_mode(self, mode, source=None):
         """Add a mode to a channel."""
         self.modes.append(mode)
+        for user in self.users:
+            user.send_cmd(
+                'MODE',
+                [self.name, '+' + mode],
+                source=source
+            )
 
-    def remove_mode(self, mode):
+    def remove_mode(self, mode, source=None):
         """Remove a mode from the channel."""
         self.modes.remove(mode)
+
+        for user in self.users:
+            user.send_cmd(
+                'MODE',
+                [self.name, '-' + mode],
+                source=source
+            )
+
+    def try_add_mode(self, user, mode):
+        """Add a mode if the user is allowed to.
+
+        Otherwise tell them they can't.
+        """
+        if self.can_set_mode(user, mode):
+            self.add_mode(mode, user.identifier)
+        
+    def try_remove_mode(self, user, mode):
+        """Remove a mode if the user is allowed to.
+
+        Otherwise, tell them they can't.
+        """
+        if self.can_set_mode(user, mode):
+            self.remove_mode(mode, user.identifier)
+
+    def try_mode_changes(self, user, modes):
+        """Attempts to change a list of modes as provided by MODE."""
+        adding = False
+        removing = False
+        for char in modes:
+            if char == '+':
+                removing = False
+                adding = True
+            elif char == '-':
+                adding = False
+                removing = True
+            else:
+                if removing:
+                    self.try_remove_mode(user, char)
+                elif adding:
+                    self.try_add_mode(user, char)
 
     def can_set_mode(self, user, mode):
         """Check if a given user can set a mode.
@@ -142,6 +188,13 @@ class Channel:
                 numerics.RPL_TOPIC, [self.name, self.topic])
         else:
             target.send_numeric(numerics.RPL_NOTOPIC, [self.name])
+
+    def send_mode_info(self, target):
+        """Send the channel's mode info to a user."""
+        target.send_numeric(
+            numerics.RPL_CHANNELMODEIS,
+            [self.name, ''.join(self.modes)]
+        )
 
     def try_set_topic(self, user, topic):
         """Set the topic if user is permitted.
