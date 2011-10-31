@@ -43,7 +43,7 @@ class User:
         self.host = self.connection.address[0]
         
         self.send_opening_numerics()
-        self.send_motd()
+        self.server.send_motd(self)
         self.server.send_isupport(self)
         self.channels = []
 
@@ -219,13 +219,6 @@ class User:
     def send_raw(self, message):
         self.connection.send_raw(message)
 
-    def send_motd(self):
-        """Send the MOTD to a user"""
-        self.send_numeric(numerics.RPL_MOTDSTART, [self.server.config.hostname])
-        for line in self.server.config.motd.splitlines():
-            self.send_numeric(numerics.RPL_MOTD, [line])
-        self.send_numeric(numerics.RPL_ENDOFMOTD, [])
-        
     def msg(self, source, channel, msg):
         """Send a message to the user"""
         self.send_cmd('PRIVMSG', [channel, msg], True, source.identifier)

@@ -89,6 +89,13 @@ class IRCNet(asyncore.dispatcher):
             ]
         )
 
+    def send_motd(self, user):
+        """Send the MOTD to the user."""
+        user.send_numeric(numerics.RPL_MOTDSTART, [self.config.hostname])
+        for line in self.config.motd.splitlines():
+            user.send_numeric(numerics.RPL_MOTD, [line])
+        user.send_numeric(numerics.RPL_ENDOFMOTD, [])
+
     def send_whois(self, whois_target, reply_user):
         """Send a user WHOIS details on another user."""
         try:
