@@ -1,6 +1,8 @@
+from pyircd.message import Message
+
 # Comments refer to variables in below strings.
 
-class NumericReply:
+class NumericReply():
     def __init__(self, number, message, final_multi=False):
         self.number = number
         self.num_str = str(self.number).zfill(3)
@@ -76,11 +78,14 @@ ERR_NOSUCHNICK = NumericReply(401, "{} :No such nick/channel", True)
 # Channel name
 ERR_NOSUCHCHANNEL = NumericReply(403, "{} :No such channel", True)
 
+# Nick
+ERR_NICKNAMEINUSE = NumericReply(433, "{} :Nickname already in use", True)
+
 # Command attempted
 ERR_NEEDMOREPARAMS = NumericReply(461, "{} :Not enough parameters", True)
 
-# Nick
-ERR_NICKNAMEINUSE = NumericReply(433, "{} :Nickname already in use", True)
+# Channel
+ERR_BADCHANMASK = NumericReply(476, "{} :Bad Channel Mask")
 
 # Channel
 ERR_CHANOPRIVSNEEDED = NumericReply(

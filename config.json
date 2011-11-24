@@ -1,7 +1,12 @@
 {
-	"hostname": "localhost",
+	"hostname": "127.0.0.1",
 	"port": 6667,
 	"motd": "Welcome!\nPyIRCd testing",
 	"netname": "PyIRCd",
-	"info": "Testing server for PyIRC"
+	"info": "Testing server for PyIRC",
+	"max_targets": 5,
+	"opers":
+		[
+			{"name": "test", "pass" : "testpass" }
+		]
 }

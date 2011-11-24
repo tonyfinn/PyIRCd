@@ -6,23 +6,6 @@ CHANNEL_MIN_NAME_LEN = 3
 NICK_MAX_LEN = 16
 NICK_MIN_LEN = 3
 
-def irc_msg_split(message, full_message=True):
-    """Splits an IRC message (or partial IRC message) into its constituent parts."""
-    if message[0] == ':' and full_message:
-        message = ''.join(message.split(' ', 1)[1:]) # Drop source for now.
-
-    if ':' in message:
-        before, after = message.split(':', 1)
-        # This test is because of partial messages
-        # that begin with :
-        # e.g. RPL_MOTD segments
-        if before.strip() != '':
-            return before.strip().split(' ') + [after]
-        else:
-            return [after]
-    else:
-        return [part.strip() for part in message.split(' ')]
-
 def is_channel_name(name):
     """ Perform a quick check to see if a given string
     looks like a channel name. 

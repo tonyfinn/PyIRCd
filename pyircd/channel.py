@@ -1,4 +1,5 @@
 from pyircd import numerics
+from pyircd.message import Message
 
 PERSISTENT_MODES = ['b']
 
@@ -13,9 +14,11 @@ class Channel:
 
     def join(self, user):
         """Join a user to the channel"""
-        self.users.append(user)
-        for cuser in self.users:
-            cuser.send_cmd('JOIN', [self.name], source=user.identifier)
+        if user not in self:
+            self.users.append(user)
+            for cuser in self.users:
+                msg = Message('JOIN', [self.name], source=user.identifier)
+                cuser.send_msg(msg)
 
     def part(self, user, msg=None):
         """Remove a user from the channel list."""
@@ -29,13 +32,10 @@ class Channel:
         user.channels.remove(self)
         for cuser in self.users:
             if msg is None:
-                cuser.send_cmd('PART', [self.name], 
-                    False,
-                    user.identifier)
+                msg = Message('PART', [self.name], True, user.identifier)
             else:
-                cuser.send_cmd('PART', [self.name, msg],
-                    True,
-                    user.identifier)
+                msg = Message('PART', [self.name, msg], True, user.identifier)
+            cuser.send_msg(msg)
         
         if len(self.users) == 0:
             self.server.remove_channel(self)
@@ -44,22 +44,16 @@ class Channel:
         """Add a mode to a channel."""
         self.modes.append(mode)
         for user in self.users:
-            user.send_cmd(
-                'MODE',
-                [self.name, '+' + mode],
-                source=source
-            )
+            msg = Message('MODE', [self.name, '+' + mode], source=source)
+            user.send_msg(msg)
 
     def remove_mode(self, mode, source=None):
         """Remove a mode from the channel."""
         self.modes.remove(mode)
 
         for user in self.users:
-            user.send_cmd(
-                'MODE',
-                [self.name, '-' + mode],
-                source=source
-            )
+            msg = Message('MODE', [self.name, '-' + mode], source=source)
+            user.send_msg(msg)
 
     def try_add_mode(self, user, mode):
         """Add a mode if the user is allowed to.
@@ -208,12 +202,8 @@ class Channel:
                 self.topic = topic
 
             for nuser in self.users:
-                nuser.send_cmd(
-                    'TOPIC',
-                    [self.name, topic],
-                    True,
-                    user.identifier
-                )
+                msg = Message('TOPIC', [self.name, topic], True, user.identifier)
+                nuser.send_msg(msg)
         else:
             user.send_numeric(
                 numerics.ERR_CHANOPRIVSNEEDED,

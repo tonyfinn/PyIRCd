@@ -1,5 +1,6 @@
 import asynchat
 from pyircd.ircutils import *
+from pyircd.message import *
 from pyircd.user import User
 from pyircd import numerics
 
@@ -48,10 +49,10 @@ class IRCCon(asynchat.async_chat):
         
         self.ibuffer = []
 
-    def handle_ping(self, msg):
-        parts = irc_msg_split(msg)
-        if len(parts) == 2:
-            cmd, info = parts
+    def handle_ping(self, msg_str):
+        msg = msg_from_string(msg_str)
+        if len(msg.params) == 1:
+            info = msg.params[0]
             self.send_raw(build_irc_msg('PONG', [info], True,
                 self.server.config.hostname))
 
@@ -62,20 +63,21 @@ class IRCCon(asynchat.async_chat):
     def send_raw(self, msg):
         self.push(msg.encode(encoding="utf-8"))
 
-    def handle_initial_nick(self, msg):
-        cmd, nick = irc_msg_split(msg) # Already know cmd is NICK when called
+    def handle_initial_nick(self, msg_str):
+        msg = msg_from_string(msg_str)
+        nick = msg.params[0]
         if nick in self.server.users:
             self.send_numeric(ERR_NICKNAMEINUSE, ['nick'], True)
         else:
             self.nick = nick
             self.nick_done = True
 
-    def handle_user(self, msg):
-        parts = irc_msg_split(msg)
-        if len(parts) != 5:
+    def handle_user(self, msg_str):
+        msg = msg_from_string(msg_str)
+        if len(msg.params) != 4:
             self.send_numeric(ERR_NEEDMOREPARAMS, ['USER'], True)
         else:
-            cmd, username, visibility, ignore, real_name = irc_msg_split(msg)
+            username, visibility, ignore, real_name = msg.params
             self.real_name = real_name
             self.username = username
             self.user_done = True

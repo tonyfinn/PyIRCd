@@ -2,8 +2,11 @@ import asyncore
 import socket
 from pyircd.con import IRCCon
 from pyircd.channel import Channel
+from pyircd.message import Message
 from pyircd.ircutils import *
 from pyircd import numerics
+
+class InvalidChannelError(Exception): pass
 
 class IRCNet(asyncore.dispatcher):
     """Handles the network aspect of the IRC server."""
@@ -14,6 +17,7 @@ class IRCNet(asyncore.dispatcher):
         self.handler_class = handler_class
 
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(self.config.hostname + ":" + str(self.config.port))
         self.bind((self.config.hostname, self.config.port))
         self.listen(5)
         
@@ -56,6 +60,8 @@ class IRCNet(asyncore.dispatcher):
             self.channels[channel] = Channel(channel, self)
             self.channels[channel].join(user)
             self.channels[channel].add_mode_to_user('o', user)
+        else:
+            raise InvalidChannelError("Invalid Channel Name")
 
         user.channels.append(self.channels[channel])
 
@@ -88,6 +94,9 @@ class IRCNet(asyncore.dispatcher):
                 self.config.netname
             ]
         )
+
+    def try_make_oper(self, user, opname, pw):
+        pass
 
     def send_motd(self, user):
         """Send the MOTD to the user."""
