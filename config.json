@@ -7,6 +7,6 @@
 	"max_targets": 5,
 	"opers":
 		[
-			{"name": "test", "pass" : "testpass" }
+			{"name": "test", "pw" : "testpass" }
 		]
 }

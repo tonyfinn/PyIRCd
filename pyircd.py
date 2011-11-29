@@ -5,7 +5,7 @@ import asyncore
 from pyircd.config import Config
 from pyircd.net import IRCNet
 
-VERSION="dev-1"
+VERSION="dev-2"
 
 class PyIRCD:
     """Controls the running and setup of the IRC Server"""

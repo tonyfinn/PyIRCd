@@ -3,6 +3,8 @@ import socket
 from pyircd.con import IRCCon
 from pyircd.channel import Channel
 from pyircd.message import Message
+from pyircd.errors import NoSuchUserError, NoSuchChannelError, \
+InsufficientParamsError
 from pyircd.ircutils import *
 from pyircd import numerics
 
@@ -30,6 +32,9 @@ class IRCNet(asyncore.dispatcher):
         """Handle a new connection to the server."""
         self.handler_class(conn, address, self)
 
+    def handle_close(self):
+        self.close()
+
     def connect_user(self, user):
         """Add a user to the server"""
         self.users[user.hostmask] = user
@@ -52,14 +57,15 @@ class IRCNet(asyncore.dispatcher):
         if channel.name in self.channels:
             del self.channels[channel.name]
 
-    def join_user_to_channel(self, user, channel):
+    def join_user_to_channel(self, user, channel, key=None):
         """Add a user to a channel, creating it if it does not exist. """
         if channel in self.channels:
-            self.channels[channel].join(user)
+            self.channels[channel].join(user, key)
         elif is_channel_name(channel):
             self.channels[channel] = Channel(channel, self)
-            self.channels[channel].join(user)
-            self.channels[channel].add_mode_to_user('o', user)
+            self.channels[channel].join(user, key)
+            self.channels[channel].add_mode_to_user('o', user, 
+                source=self.config.hostname)
         else:
             raise InvalidChannelError("Invalid Channel Name")
 
@@ -73,7 +79,10 @@ class IRCNet(asyncore.dispatcher):
         
         Raises a KeyError if there is no such channel with that name.
         """
-        return self.channels[channel]
+        try:
+            return self.channels[channel]
+        except KeyError:
+            raise NoSuchChannelError(channel)
 
     def get_user(self, nick):
         """Get the user object for a nickname.
@@ -84,7 +93,7 @@ class IRCNet(asyncore.dispatcher):
             if user.nick == nick:
                 return user
 
-        raise KeyError
+        raise NoSuchUserError(nick)
 
     def send_isupport(self, user):
         """Send the ISUPPORT details to the user."""
@@ -96,7 +105,14 @@ class IRCNet(asyncore.dispatcher):
         )
 
     def try_make_oper(self, user, opname, pw):
-        pass
+        for oper in self.config.opers:
+            if opname == oper['name'] and pw == oper['pw']:
+                user.add_mode('O')
+                user.send_numeric(numerics.RPL_YOUREOPER)
+                return
+        
+        print("Failed OPER: ", user.identifer)
+        user.send_numeric(numerics.ERR_PASSWDMISMATCH)
 
     def send_motd(self, user):
         """Send the MOTD to the user."""
@@ -107,16 +123,8 @@ class IRCNet(asyncore.dispatcher):
 
     def send_whois(self, whois_target, reply_user):
         """Send a user WHOIS details on another user."""
-        try:
-            tuser = self.get_user(whois_target)
-            self.send_whois_data(tuser, reply_user)
-        except KeyError:
-            reply_user.send_numeric(
-                numerics.ERR_NOSUCHNICK,
-                [
-                    whois_target
-                ]
-            )
+        tuser = self.get_user(whois_target)
+        self.send_whois_data(tuser, reply_user)
     
     def send_whois_data(self, whois_target, reply_user):
         """Send the reply to a WHOIS message."""

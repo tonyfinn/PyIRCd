@@ -1,3 +1,6 @@
+class InvalidMessageError(Exception):
+    pass
+
 class Message:
     def __init__(self, command, params, final_param_multi=False, source=None):
         self.source = source
@@ -33,26 +36,29 @@ def msg_from_string(msg_str):
     The message needs to be a complete message.
     
     """
-    if msg_str[0] == ':':
-        before, after = msg_str.split(' ', 1)
-        source = before[1:] # Drop colon
-        msg_str = after
-    else:
-        source = None
+    try:
+        if msg_str[0] == ':':
+            before, after = msg_str.split(' ', 1)
+            source = before[1:] # Drop colon
+            msg_str = after
+        else:
+            source = None
 
-    final_part_multi = False
-    if ':' in msg_str:
-        final_part_multi = True
-        before, after = msg_str.split(':', 1)
-        params = before.strip().split(' ') + [after]
-    else:
-        params = [part.strip() for part in msg_str.split(' ')]
+        final_part_multi = False
+        if ':' in msg_str:
+            final_part_multi = True
+            before, after = msg_str.split(':', 1)
+            params = before.strip().split(' ') + [after]
+        else:
+            params = [part.strip() for part in msg_str.split(' ')]
 
-    command = params[0]
-    params = params[1:]
+        command = params[0]
+        params = params[1:]
 
-    return Message(command, params, final_part_multi, source)
-    
+        return Message(command, params, final_part_multi, source)
+    except IndexError:
+        raise InvalidMessageError()
+        
 def irc_msg_split(message, full_message=True):
     """Splits an IRC message (or partial IRC message) into its constituent parts."""
     if message[0] == ':' and full_message:

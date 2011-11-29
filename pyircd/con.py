@@ -31,23 +31,27 @@ class IRCCon(asynchat.async_chat):
 
         # Some clients leave trailing spaces at the end
         # where they shouldn't. *cough* libpurple JOIN *cough*
-        msg = msg_bytes.decode(encoding='utf-8').strip()
-        print("Recieved: " + msg)
-        if msg.startswith('PING'):
-            # Totally unrelated to the user layer, handle here.
-            self.handle_ping(msg)
-        elif self.user is None:
-            if msg.startswith('NICK'):
-                self.handle_initial_nick(msg)
-            elif msg.startswith('USER'):
-                self.handle_user(msg)
+        try: 
+            msg = msg_bytes.decode(encoding='utf-8').strip()
+            print("Recieved: " + msg)
+            if msg.startswith('PING'):
+                # Totally unrelated to the user layer, handle here.
+                self.handle_ping(msg)
+            elif self.user is None:
+                if msg.startswith('NICK'):
+                    self.handle_initial_nick(msg)
+                elif msg.startswith('USER'):
+                    self.handle_user(msg)
 
-            if self.nick_done and self.user_done:
-                self.create_user()
-        else:
-            self.user.handle_cmd(msg)
-        
-        self.ibuffer = []
+                if self.nick_done and self.user_done:
+                    self.create_user()
+            else:
+                self.user.handle_cmd(msg)
+        finally: 
+            # Make sure the buffer gets emptied out in case of an error
+            # Otherwise the connection ends up continously erroring on the
+            # one message.
+            self.ibuffer = []
 
     def handle_ping(self, msg_str):
         msg = msg_from_string(msg_str)
@@ -66,8 +70,8 @@ class IRCCon(asynchat.async_chat):
     def handle_initial_nick(self, msg_str):
         msg = msg_from_string(msg_str)
         nick = msg.params[0]
-        if nick in self.server.users:
-            self.send_numeric(ERR_NICKNAMEINUSE, ['nick'], True)
+        if nick in self.server.used_nicks:
+            self.send_numeric(numerics.ERR_NICKNAMEINUSE, [nick], True)
         else:
             self.nick = nick
             self.nick_done = True
@@ -75,12 +79,15 @@ class IRCCon(asynchat.async_chat):
     def handle_user(self, msg_str):
         msg = msg_from_string(msg_str)
         if len(msg.params) != 4:
-            self.send_numeric(ERR_NEEDMOREPARAMS, ['USER'], True)
+            self.send_numeric(numerics.ERR_NEEDMOREPARAMS, ['USER'], True)
         else:
             username, visibility, ignore, real_name = msg.params
             self.real_name = real_name
             self.username = username
             self.user_done = True
+
+    def handle_close(self):
+        self.close()
 
     def send_numeric(self, numeric, sparams, final_param_multi=False,
         source=None):
@@ -95,7 +102,7 @@ class IRCCon(asynchat.async_chat):
 
         message = build_irc_msg(
             numeric.num_str,
-            irc_msg_split(numeric.message.format(*params)),
+            irc_msg_split(numeric.message.format(*sparams)),
             final_param_multi,
             source
         )

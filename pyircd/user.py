@@ -1,21 +1,44 @@
 from pyircd.ircutils import *
-from pyircd.message import *
+from pyircd.message import Message, msg_from_string, InvalidMessageError, \
+        irc_msg_split
+from pyircd.errors import NoSuchUserError, NoSuchChannelError, \
+        InsufficientParamsError, BadKeyError, NeedChanOpError, ChannelFullError
 from pyircd import numerics
 
-import functools
+from functools import wraps
+
+def handler(func):
+    """Set a function up as a handler, including some common error handling."""
+    @wraps(func)
+    def inner_handler(self, msg):
+        try:
+            func(self, msg)
+        except NoSuchUserError as e:
+            self.send_numeric(
+                numerics.ERR_NOSUCHNICK,
+                [e.target]
+            )
+        except InsufficientParamsError as e:
+            self.send_numeric(
+                numerics.ERR_NEEDMOREPARAMS,
+                [e.command]
+            )
+        except NoSuchChannelError as e:
+            self.send_numeric(
+                numerics.ERR_NOSUCHCHANNEL,
+                [e.channel]
+            )
+    return inner_handler
 
 def min_params(num_params):
     """Reply with ERR_NEEDMOREPARAMS if too few parameters are sent in an irc
     message.
     """
     def decorate(func):
-        @functools.wraps(func)
+        @wraps(func)
         def handler(self, msg):
             if len(msg.params) < num_params:
-                self.send_numeric(
-                    numerics.ERR_NEEDMOREPARAMS,
-                    [msg.command]
-                )
+                raise InsufficientParamsError(msg.command)
             else:
                 func(self, msg)
         return handler
@@ -34,7 +57,8 @@ class User:
             'WHO': self.handle_who,
             'WHOIS': self.handle_whois,
             'MODE': self.handle_mode,
-            'OPER': self.handle_oper
+            'OPER': self.handle_oper,
+            'MOTD': self.handle_motd
         }
 
         self.nick = nick
@@ -45,8 +69,8 @@ class User:
         self.host = self.connection.address[0]
         
         self.send_opening_numerics()
-        self.server.send_motd(self)
         self.server.send_isupport(self)
+        self.server.send_motd(self)
         self.channels = []
         self.modes = []
 
@@ -96,36 +120,54 @@ class User:
     def identifier(self):
         return self.nick + '!' + self.username + '@' + self.host
 
+    def add_mode(self, mode):
+        self.modes.append(mode)
+
     def handle_cmd(self, msg):
-        command = msg.split(' ')[0].upper()
-        if command in self.handle_commands:
-            self.handle_commands[command](msg_from_string(msg))
+        try:
+            command = msg.split(' ')[0].upper()
+        except IndexError:
+            return # Invalid command, do nothing
+        try:
+            func = self.handle_commands.get(command, self.handle_unknown)
+            func(msg_from_string(msg))
+        except InvalidMessageError:
+            pass # Also invalid command
     
+    def handle_unknown(self, msg):
+        self.send_numeric(numerics.ERR_UNKNOWNCOMMAND, [msg.command])
+
+    @handler
     @min_params(2)
     def handle_privmsg(self, msg):
         """Handle recieving a message from the user"""
         targets = msg.params[0].split(',')
         for target in targets:
-            try:
-                if is_channel_name(target):
-                    self.server.get_channel(target).msg(self, msg.last)
-                else:
-                    target_user = self.server.get_user(target)
-                    target_user.msg(self, target, msg.last)
-            except KeyError:
-                self.send_numeric(numerics.ERR_NOSUCHNICK, [target])
+            if is_channel_name(target):
+                self.server.get_channel(target).msg(self, msg.last)
+            else:
+                target_user = self.server.get_user(target)
+                target_user.msg(self, target, msg.last)
 
+    @handler
+    def handle_motd(self, msg):
+        self.server.send_motd(self)
+
+    @handler
     @min_params(1)
     def handle_join(self, msg):
         """Handle the user attempting to join a channel"""
         channel = msg.params[0]
-        if len(msg.params) > 1:
-            key = parts[1]
+        key = msg.params[1] if len(msg.params) > 1 else None
         try:
-            self.server.join_user_to_channel(self, channel)
-        except InvalidChannelError:
-            self.send_numeric(numerics.ERR_BADCHANMASK, channel)
+            self.server.join_user_to_channel(self, channel, key)
+        except BadKeyError as e:
+            self.send_numeric(
+                numerics.ERR_BADCHANNELKEY,
+                [e.channel]
+            )
 
+    @handler
     @min_params(1)
     def handle_part(self, msg):
         """Handle the user leaving a channel"""
@@ -135,12 +177,9 @@ class User:
             channel = msg.params[0]
             reason = None
 
-        try:
-            self.server.get_channel(channel).part(self, reason)
-        except KeyError:
-            # Channel doesn't exist, no need to take action.
-            pass
+        self.server.get_channel(channel).part(self, reason)
 
+    @handler
     def handle_quit(self, msg):
         """Handle the user quitting from the server"""
         if len(msg.params) == 1:
@@ -149,7 +188,8 @@ class User:
         else:
             self.server.quit_user(self)
         self.connection.close()
-
+    
+    @handler
     def handle_names(self, msg):
         """Handle a request for the names command"""
         if len(msg.params) == 1:
@@ -162,23 +202,19 @@ class User:
                 chan_obj = self.server.get_channel(channel)
                 chan_obj.send_user_list(self)
 
+    @handler
     @min_params(1)
     def handle_topic(self, msg):
         """Handle a request for a channel topic or topic change"""
         channel = msg.params[0]
-        try:
-            chan_obj = self.server.get_channel(channel)
-            if len(msg.params) == 1:
-                chan_obj.send_topic(self)
-            else:
-                new_topic = msg.params[1]
-                chan_obj.try_set_topic(self, new_topic)
-        except KeyError:
-            self.send_numeric(
-                numerics.ERR_NOSUCHCHANNEL,
-                [channel]
-            )
+        chan_obj = self.server.get_channel(channel)
+        if len(msg.params) == 1:
+            chan_obj.send_topic(self)
+        else:
+            new_topic = msg.params[1]
+            chan_obj.try_set_topic(self, new_topic)
 
+    @handler
     @min_params(1)
     def handle_mode(self, msg):
         """Handle a mode message."""
@@ -190,18 +226,17 @@ class User:
     def handle_channel_mode(self, params):
         """Handle a channel mode change attempt."""
         channel = params[0]
-        try:
-            chan_obj = self.server.get_channel(channel)
-        except KeyError:
-            self.send_numeric(
-                numerics.ERR_NOSUCHCHANNEL,
-                [channel]
-            )
-            return
+        chan_obj = self.server.get_channel(channel)
         if len(params) == 1:
             chan_obj.send_mode_info(self)
         else:
-            chan_obj.try_mode_changes(self, params[1])
+            try:
+                chan_obj.try_mode_changes(self, params[1], params[2:])
+            except NeedChanOpError:
+                self.send_numeric(
+                    numerics.ERR_CHANOPRIVSNEEDED,
+                    [channel]
+                )
 
     def handle_user_mode(self, params):
         nick = params[0]
@@ -223,12 +258,14 @@ class User:
                     else:
                         self.modes.remove(mode)
 
+    @handler
     @min_params(1)
     def handle_who(self, msg):
         """Handle recieving a WHO message."""
         channel = msg.params[0]
         self.server.get_channel(channel).send_who(self)
 
+    @handler
     @min_params(1)
     def handle_whois(self, msg):
         """Handle a WHOIS message being recieved."""
@@ -236,6 +273,7 @@ class User:
         for target in targets.split(','):
             self.server.send_whois(target, self)
 
+    @handler
     @min_params(2)
     def handle_oper(self, msg):
         """Handle a OPER command being recieved."""
@@ -244,10 +282,9 @@ class User:
     def send_numeric(self, numeric, sparams=None, source=None):
         """Send a numeric command to the user"""
         if sparams is None:
-            params = [self.nick]
-        else:
-            message = numeric.message.format(*sparams)
-            params = [self.nick] + irc_msg_split(message, False)
+            sparams = []
+        message = numeric.message.format(*sparams)
+        params = [self.nick] + irc_msg_split(message, False)
 
         self.send_cmd(
             numeric.num_str,
