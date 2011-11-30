@@ -18,6 +18,8 @@ class IRCNet(asyncore.dispatcher):
         self.config = config
         self.handler_class = handler_class
 
+        self.highest_unique_id = 0
+
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         print(self.config.hostname + ":" + str(self.config.port))
         self.bind((self.config.hostname, self.config.port))
@@ -30,20 +32,23 @@ class IRCNet(asyncore.dispatcher):
 
     def handle_accepted(self, conn, address):
         """Handle a new connection to the server."""
+        # The class is using the highest unique id to set it's own id.
+        # Make sure it's always incremented after creating a new instnace.
         self.handler_class(conn, address, self)
+        self.highest_unique_id += 1
 
     def handle_close(self):
         self.close()
 
     def connect_user(self, user):
         """Add a user to the server"""
-        self.users[user.hostmask] = user
+        self.users[user.unique_id] = user
         self.used_nicks.append(user.nick)
 
     def quit_user(self, user, reason=None):
         """Remove a user from the server"""
         if user in self.users:
-            del self.users[user.hostmask]
+            del self.users[user.unique_id]
             used_nicks.remove(user.nick)
         for channel in list(self.channels.keys()):
             if user in self.channels[channel]:

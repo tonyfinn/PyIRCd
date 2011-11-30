@@ -66,6 +66,7 @@ class User:
         self.real_name = real_name
         self.server = server
         self.connection = connection
+        self.unique_id = connection.unique_id
         self.host = self.connection.address[0]
         
         self.send_opening_numerics()

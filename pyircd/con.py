@@ -12,6 +12,8 @@ class IRCCon(asynchat.async_chat):
         self.socket = socket
         self.address = address
         self.server = server
+
+        self.unique_id = server.highest_unique_id
         self.set_terminator(b'\r\n')
         self.user = None;
 

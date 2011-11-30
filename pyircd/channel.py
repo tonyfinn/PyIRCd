@@ -37,8 +37,8 @@ class Channel:
         """Remove a user from the channel list."""
         self.users.remove(user)
 
-        if user.hostmask in self.usermodes:
-            for mode in self.usermodes[user.hostmask][:]:
+        if user.unique_id in self.usermodes:
+            for mode in self.usermodes[user.unique_id][:]:
                 if mode not in PERSISTENT_MODES:
                     self.remove_mode_from_user(mode, user)
 
@@ -183,10 +183,10 @@ class Channel:
 
     def add_mode_to_user(self, mode, user, source=None, notify=True):
         """Set a mode on a user within this channel."""
-        if user.hostmask in self.usermodes:
-            self.usermodes[user.hostmask].append(mode)
+        if user.unique_id in self.usermodes:
+            self.usermodes[user.unique_id].append(mode)
         else:
-            self.usermodes[user.hostmask] = [mode]
+            self.usermodes[user.unique_id] = [mode]
 
         if notify:
             self.notify_mode_change(mode, '+', user, source)
@@ -194,10 +194,10 @@ class Channel:
 
     def remove_mode_from_user(self, mode, user, source=None, notify=True):
         """Remove a mode from a user within this channel."""
-        if user.hostmask in self.usermodes:
-            self.usermodes[user.hostmask].remove(mode)
-            if self.usermodes[user.hostmask] == []:
-                del self.usermodes[user.hostmask]
+        if user.unique_id in self.usermodes:
+            self.usermodes[user.unique_id].remove(mode)
+            if self.usermodes[user.unique_id] == []:
+                del self.usermodes[user.unique_id]
         
         if notify:
             self.notify_mode_change(mode, '-', user, source)
@@ -210,10 +210,10 @@ class Channel:
 
     def mode_on_user(self, mode, user):
         """Check if a user has a given mode within this channel."""
-        if user.hostmask not in self.usermodes:
+        if user.unique_id not in self.usermodes:
             return False
         else:
-            return mode in self.usermodes[user.hostmask]
+            return mode in self.usermodes[user.unique_id]
 
     def has_mode(self, mode):
         """Return whether a channel has a given mode or not."""
