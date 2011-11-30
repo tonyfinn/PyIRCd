@@ -12,3 +12,11 @@ Supported Features
 * Changing topics
 * Channel modes (voice, op, limits, keys etc.)
 * Opers
+
+Todo
+===
+
+* Add server linking features. This will likely mean splitting IRCNet into
+  two classes - one to handle specific server things and one to handle
+  communicating with the rest of the network.
+* Actually pay attention to some extra modes like m or s.
