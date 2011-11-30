@@ -6,6 +6,7 @@ from pyircd.errors import NoSuchUserError, NoSuchChannelError, \
 from pyircd import numerics
 
 from functools import wraps
+from itertools import zip_longest
 
 def handler(func):
     """Set a function up as a handler, including some common error handling."""
@@ -102,8 +103,8 @@ class User:
             [
                 self.server.config.hostname,
                 self.server.config.version,
-                "",
-                ""
+                "Oov",
+                "kl"
             ]
         )
 
@@ -158,15 +159,23 @@ class User:
     @min_params(1)
     def handle_join(self, msg):
         """Handle the user attempting to join a channel"""
-        channel = msg.params[0]
-        key = msg.params[1] if len(msg.params) > 1 else None
-        try:
-            self.server.join_user_to_channel(self, channel, key)
-        except BadKeyError as e:
-            self.send_numeric(
-                numerics.ERR_BADCHANNELKEY,
-                [e.channel]
-            )
+        channels = msg.params[0].split(',')
+        keys = msg.params[1].split(',') if len(msg.params) > 1 else []
+        for channel, key in zip_longest(channels, keys):
+            if channel is None:
+                break
+            try:
+                self.server.join_user_to_channel(self, channel, key)
+            except BadKeyError as e:
+                self.send_numeric(
+                    numerics.ERR_BADCHANNELKEY,
+                    [e.channel]
+                )
+            except ChannelFullError as e:
+                self.send_numeric(
+                    numerics.ERR_CHANNELISFULL,
+                    [e.channel]
+                )
 
     @handler
     @min_params(1)

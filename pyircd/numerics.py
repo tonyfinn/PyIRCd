@@ -12,15 +12,14 @@ class NumericReply():
 # nick!user@host
 RPL_WELCOME = NumericReply(
         1, 
-        "Welcome to the Internet Relay Network {}!{}@{}",
-        False
+        ":Welcome to the Internet Relay Network {}!{}@{}"
     )
 
 # servername, version
-RPL_YOURHOST = NumericReply(2, "Your host is {}, running version {}", False)
+RPL_YOURHOST = NumericReply(2, ":Your host is {}, running version {}")
 
 # Launch time
-RPL_CREATED = NumericReply(3, "The server was created {}", False)
+RPL_CREATED = NumericReply(3, ":This server was created {}")
 
 # servername, version, usermodes, channelmodes
 RPL_MYINFO = NumericReply(4, "{} {} {} {}", False)
@@ -97,6 +96,9 @@ ERR_USERNOTINCHANNEL = NumericReply(441, "{} {} :They aren't on that channel")
 ERR_NEEDMOREPARAMS = NumericReply(461, "{} :Not enough parameters")
 
 ERR_PASSWDMISMATCH = NumericReply(464, ":Password incorrect")
+
+# Channel
+ERR_CHANNELISFULL = NumericReply(471, "{} :Cannot join channel (+l)")
 
 # Channel
 ERR_BADCHANNELKEY = NumericReply(475, "{} :Cannot join channel (+k)")
