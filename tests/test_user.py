@@ -88,3 +88,20 @@ class UserJoinTest(BasicUserTestCase):
             {'user': 'nick', 'channel': '#mtest', 'key': None},
         ]
         self.assertAllIn(expected_joins, self.server.channel_joins)
+
+class QuitTest(BasicUserTestCase):
+    def setUp(self):
+        BasicUserTestCase.setUp(self)
+        self.con.closed = False
+
+    def test_quit(self):
+        self.con.simulate_recv('QUIT')
+        self.assertTrue({'user': 'nick', 'reason': None} in self.server.quits,
+            'Server not informed of quitting.')
+        self.assertTrue(self.con.closed, 'Connection not closed')
+
+    def test_quit_reason(self):
+        self.con.simulate_recv('QUIT :Because why not')
+        self.assertTrue(
+            {'user': 'nick', 'reason': 'Because why not'} in self.server.quits,
+            'No quit reason found.')
