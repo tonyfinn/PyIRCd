@@ -9,5 +9,6 @@ Supported Features
 * Messaging (channels and PMs)
 * WHOIS, NAMES, WHO
 * Message of the Day
-* Changing topics (only for first user of a channel as MODE isn't done
-  yet.)
+* Changing topics
+* Channel modes (voice, op, limits, keys etc.)
+* Opers
