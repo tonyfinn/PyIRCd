@@ -12,11 +12,6 @@ class BasicUserTestCase(unittest.TestCase):
                 self.con)
         self.con.add_user(self.user)
 
-    def check_all_replies_present(self, replies, msg = None):
-        for reply in replies:
-            error = msg or 'Missing reply {}'.format(repr(reply))
-            self.assertTrue(reply in self.con.sent_msgs, error)
-
     def assertAllIn(self, first_list, second_list, msg=None):
         for x in first_list:
             msg = msg or "Missing element: {}".format(x)
@@ -45,7 +40,7 @@ class OnConnectionTestCase(BasicUserTestCase):
         ]
         sent_msgs = set([':example.com {} nick {}\r\n'.format(message[0], message[1])
             for message in messages])
-        self.check_all_replies_present(sent_msgs, 'Missing numeric welcome message')
+        self.assertAllIn(sent_msgs, self.con.sent_msgs, 'Missing numeric welcome message')
 
 class UnknownCommandTestCase(BasicUserTestCase):
     def test_handle_unknown(self):
@@ -55,7 +50,7 @@ class UnknownCommandTestCase(BasicUserTestCase):
         ])
         self.con.simulate_recv('MADEUP')
         self.con.simulate_recv('MADEUPMORE command params :with multi part')
-        self.check_all_replies_present(replies)
+        self.assertAllIn(replies, self.con.sent_msgs)
 
 class UserJoinTest(BasicUserTestCase):
     def test_basic_user_join_valid(self):
