@@ -4,9 +4,10 @@ from .mock_con import MockCon
 from .mock_server import MockConfig, MockServer
 from .mock_user import MockUser
 from .mock_channel import MockChannel
+from . import BasicTestCase
 from pyircd.user import User
 
-class BasicUserTestCase(unittest.TestCase):
+class BasicUserTestCase(BasicTestCase):
     def setUp(self):
         self.server = MockServer()
         self.con = MockCon()
@@ -20,22 +21,17 @@ class BasicUserTestCase(unittest.TestCase):
         self.server.set_return_user(self.fake_user)
         self.server.set_return_channel(self.fake_channel)
 
-    def assertAllIn(self, first_list, second_list, msg=None):
-        for x in first_list:
-            msg = msg or "Missing element: {}".format(x)
-            self.assertTrue(x in second_list, msg)
-
 class OnConnectionTestCase(BasicUserTestCase):
 
     def test_motd_sent(self):
         """Test that the user prompts for motd on connection."""
-        self.assertTrue(
+        self.assert_true(
             self.server.motd_sent,
             'User did not try have motd sent')
 
     def test_isupport_sent(self):
         """Test that the user prompts for ISUPPORT info on connection."""
-        self.assertTrue(
+        self.assert_true(
             self.server.isupport_sent,
             'User did not try have isupport info sent.'
         )
@@ -51,7 +47,7 @@ class OnConnectionTestCase(BasicUserTestCase):
         ]
         sent_msgs = set([':example.com {} nick {}\r\n'.format(message[0], message[1])
             for message in messages])
-        self.assertAllIn(sent_msgs, self.con.sent_msgs, 'Missing numeric welcome message')
+        self.assert_all_in(sent_msgs, self.con.sent_msgs, 'Missing numeric welcome message')
 
 class UnknownCommandTestCase(BasicUserTestCase):
     def test_handle_unknown(self):
@@ -62,7 +58,7 @@ class UnknownCommandTestCase(BasicUserTestCase):
         ])
         self.con.simulate_recv('MADEUP')
         self.con.simulate_recv('MADEUPMORE command params :with multi part')
-        self.assertAllIn(replies, self.con.sent_msgs)
+        self.assert_all_in(replies, self.con.sent_msgs)
 
 class UserJoinTest(BasicUserTestCase):
     def test_basic_user_join_valid(self):
@@ -73,13 +69,13 @@ class UserJoinTest(BasicUserTestCase):
             {'user': 'nick', 'channel': '#test', 'key': None},
             {'user': 'nick', 'channel': '#testkey', 'key': 'pass'}
         ]
-        self.assertAllIn(channel_joins, self.server.channel_joins)
+        self.assert_all_in(channel_joins, self.server.channel_joins)
         
     def test_invalid_key(self):
         """Test the user notifies the client right on the wrong key."""
         self.con.simulate_recv('JOIN #wrongkey somekey')
         reply = ':example.com 475 nick #wrongkey :Cannot join channel (+k)\r\n'
-        self.assertTrue(reply in self.con.sent_msgs,
+        self.assert_true(reply in self.con.sent_msgs,
             'Not informed of bad key')
 
     def test_full_channel(self):
@@ -87,7 +83,7 @@ class UserJoinTest(BasicUserTestCase):
         channel."""
         self.con.simulate_recv('JOIN #fullchannel')
         reply = ':example.com 471 nick #fullchannel :Cannot join channel (+l)\r\n'
-        self.assertTrue(reply in self.con.sent_msgs)
+        self.assert_true(reply in self.con.sent_msgs)
 
     def test_multi_join(self):
         """Test joining multiple channels in one command."""
@@ -96,7 +92,7 @@ class UserJoinTest(BasicUserTestCase):
             {'user': 'nick', 'channel': '#mtest1', 'key': None },
             {'user': 'nick', 'channel': '#mtest2', 'key': None },
         ]
-        self.assertAllIn(channel_joins, self.server.channel_joins)
+        self.assert_all_in(channel_joins, self.server.channel_joins)
 
     def test_multi_join_with_keys(self):
         """Test joining multiple channels, some with keys"""
@@ -105,7 +101,7 @@ class UserJoinTest(BasicUserTestCase):
             {'user': 'nick', 'channel': '#mtestkey', 'key': 'pass'},
             {'user': 'nick', 'channel': '#mtest', 'key': None},
         ]
-        self.assertAllIn(expected_joins, self.server.channel_joins)
+        self.assert_all_in(expected_joins, self.server.channel_joins)
 
 class QuitTest(BasicUserTestCase):
     def setUp(self):
@@ -115,14 +111,14 @@ class QuitTest(BasicUserTestCase):
     def test_quit(self):
         """Test quitting without a quit reason"""
         self.con.simulate_recv('QUIT')
-        self.assertTrue({'user': 'nick', 'reason': None} in self.server.quits,
+        self.assert_true({'user': 'nick', 'reason': None} in self.server.quits,
             'Server not informed of quitting.')
-        self.assertTrue(self.con.closed, 'Connection not closed')
+        self.assert_true(self.con.closed, 'Connection not closed')
 
     def test_quit_reason(self):
         """Test quitting with a quit reason"""
         self.con.simulate_recv('QUIT :Because why not')
-        self.assertTrue(
+        self.assert_true(
             {'user': 'nick', 'reason': 'Because why not'} in self.server.quits,
             'No quit reason found.')
 
@@ -132,32 +128,32 @@ class MsgTest(BasicUserTestCase):
         self.con.simulate_recv('PRIVMSG nick2 :Here is a message')
         reply = {'from': 'nick', 'channel': 'nick2', 
             'text': 'Here is a message'}
-        self.assertTrue(reply in self.fake_user.recieved_msgs,
+        self.assert_true(reply in self.fake_user.recieved_msgs,
             'Message was not sent to the test user')
 
     def test_user_to_channel(self):
         """Test messages from a user to channel."""
         self.con.simulate_recv('PRIVMSG #test :Here is a message')
         reply = {'source': 'nick', 'message': 'Here is a message'}
-        self.assertTrue(reply in self.fake_channel.msgs,
+        self.assert_true(reply in self.fake_channel.msgs,
             'Message was not sent to the test channel.')
 
 class ModeTest(BasicUserTestCase):
     def test_changing_allowed_mode(self):
         """Test a user adding a mode to themselves with no restrictions."""
         self.con.simulate_recv('MODE nick +i')
-        self.assertTrue('i' in self.user.modes,
+        self.assert_true('i' in self.user.modes,
             'Mode was not set')
 
     def test_oper_with_mode(self):
         """Ensure users can't make themselves opers."""
         self.con.simulate_recv('MODE nick +O')
-        self.assertTrue('i' not in self.user.modes,
+        self.assert_true('i' not in self.user.modes,
             'User was allowed make themselves oper.')
 
     def test_changing_others_mode(self):
         """Ensure the user is blocked from editing someone elses mode."""
         self.con.simulate_recv('MODE target +i')
         reply = ':example.com 502 nick :Cannot change mode for other users\r\n'
-        self.assertTrue(reply in self.con.sent_msgs, 
+        self.assert_true(reply in self.con.sent_msgs, 
             'Missing ERR_USERSDONTMATCH in sent_msgs')
