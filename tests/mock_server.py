@@ -15,7 +15,15 @@ class MockServer():
         self.channel_joins = []
         self.quits = []
         self.whoises = []
+
+        self.return_user = None
+        self.return_channel = None
         
+    def set_return_user(self, user):
+        self.return_user = user
+
+    def set_return_channel(self, channel):
+        self.return_channel = channel
 
     def join_user_to_channel(self, user, channel, key):
         if channel == '#wrongkey':
@@ -36,3 +44,9 @@ class MockServer():
 
     def send_isupport(self, target):
         self.isupport_sent = True
+
+    def get_channel(self, target):
+        return self.return_channel
+
+    def get_user(self, target):
+        return self.return_user
