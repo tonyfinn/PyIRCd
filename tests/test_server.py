@@ -2,8 +2,10 @@ from . import BasicTestCase
 from .mock_con import MockCon
 from .mock_server import MockConfig
 from .mock_user import MockUser
+from .mock_channel import MockChannel
 from pyircd.net import IRCNet
 from pyircd.user import User
+from pyircd.channel import Channel
 
 class MockNetwork:
     def __init__(self, server, handler_class=MockCon):
@@ -82,3 +84,27 @@ class MotdTest(BasicServerTestCase):
         self.server.send_motd(self.source_user)
         self.assert_all_in(replies, self.source_user.recieved_cmds,
                 'Missing MOTD response')
+
+class JoinTest(BasicServerTestCase):
+    def test_join_existing_channel(self):
+        """Test that a user correctly joins an existing channel."""
+        tchan = MockChannel('#test', self.server)
+        self.server.channels['#test'] = tchan
+        self.server.join_user_to_channel(self.source_user, '#test')
+        self.assert_true({'user': 'source', 'key': None} in tchan.joins,
+            'User was not joined to channel')
+        self.assert_true(self.source_user in tchan.topic_sends,
+            'User was not sent topic')
+        self.assert_true(self.source_user in tchan.userl_sends,
+            'User was not sent channel listing')
+
+    def test_join_new_channel(self):
+        """Test that a user correctly joins a new channel."""
+        self.server.join_user_to_channel(self.source_user, '#testnew')
+        self.assert_true('#testnew' in self.server.channels,
+            'Channel does not exist')
+        chan = self.server.channels['#testnew']
+        self.assert_true(self.source_user in chan,
+            'User is not in channel')
+        self.assert_true(chan.mode_on_user('o', self.source_user),
+            'User was not given op priviliges')

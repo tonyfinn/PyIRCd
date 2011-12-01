@@ -16,11 +16,12 @@ class MockUser:
         self.modes = []
         self.recieved_msgs = []
         self.recieved_cmds = []
+        self.channels = []
 
     def add_mode(self, mode):
         self.modes.append(mode)
 
-    def send_msg(self, message):
+    def send_msg(self, msg):
         self.recieved_cmds.append({'command': msg.command, 'params':
                 msg.params, 'source': msg.source})
 
