@@ -141,3 +141,23 @@ class MsgTest(BasicUserTestCase):
         reply = {'source': 'nick', 'message': 'Here is a message'}
         self.assertTrue(reply in self.fake_channel.msgs,
             'Message was not sent to the test channel.')
+
+class ModeTest(BasicUserTestCase):
+    def test_changing_allowed_mode(self):
+        """Test a user adding a mode to themselves with no restrictions."""
+        self.con.simulate_recv('MODE nick +i')
+        self.assertTrue('i' in self.user.modes,
+            'Mode was not set')
+
+    def test_oper_with_mode(self):
+        """Ensure users can't make themselves opers."""
+        self.con.simulate_recv('MODE nick +O')
+        self.assertTrue('i' not in self.user.modes,
+            'User was allowed make themselves oper.')
+
+    def test_changing_others_mode(self):
+        """Ensure the user is blocked from editing someone elses mode."""
+        self.con.simulate_recv('MODE target +i')
+        reply = ':example.com 502 nick :Cannot change mode for other users\r\n'
+        self.assertTrue(reply in self.con.sent_msgs, 
+            'Missing ERR_USERSDONTMATCH in sent_msgs')
