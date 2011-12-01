@@ -5,7 +5,7 @@ class MockUser:
         self.connection = connection
         self.nick = nick
         self.username = username
-        self.realname = name
+        self.real_name = realname
         self.host = host
         self.hostmask = username + '@' + host
         self.identifier = self.nick + '!' + self.hostmask
