@@ -1,4 +1,5 @@
 from pyircd.errors import BadKeyError, ChannelFullError
+from .mock_con import MockCon
 
 class MockConfig():
     def __init__(self):
@@ -18,6 +19,8 @@ class MockServer():
 
         self.return_user = None
         self.return_channel = None
+
+        self.highest_unique_id = 47
         
     def set_return_user(self, user):
         self.return_user = user
@@ -50,3 +53,6 @@ class MockServer():
 
     def get_user(self, target):
         return self.return_user
+
+    def connect_user(self, user):
+        pass

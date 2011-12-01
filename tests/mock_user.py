@@ -10,6 +10,9 @@ class MockUser:
         self.hostmask = username + '@' + host
         self.identifier = self.nick + '!' + self.hostmask
 
+        self.unique_id = self.server.highest_unique_id or 0
+        self.server.connect_user(self)
+
         self.modes = []
         self.recieved_msgs = []
         self.recieved_cmds = []

@@ -10,35 +10,42 @@ from pyircd import numerics
 
 class InvalidChannelError(Exception): pass
 
-class IRCNet(asyncore.dispatcher):
+class NetworkHandler(asyncore.dispatcher):
+    def __init__(self, server, handler_class=IRCCon):
+        asyncore.dispatcher.__init__(self)
+        self.server = server
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.bind((self.server.config.hostname, self.server.config.port))
+        self.listen(5)
+
+    def handle_accepted(self, conn, address):
+        con = self.handler_class(conn, address, self.server)
+        self.server.handle_new_connection(con)
+
+    def handle_close(self):
+        self.close()
+
+class IRCNet:
     """Handles the network aspect of the IRC server."""
 
-    def __init__(self, config, handler_class=IRCCon):
-        asyncore.dispatcher.__init__(self)
+    def __init__(self, config, handler_class=IRCCon,
+            netaccess_class=NetworkHandler):
+        self.netaccess = netaccess_class(self)
         self.config = config
         self.handler_class = handler_class
 
         self.highest_unique_id = 0
 
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        print(self.config.hostname + ":" + str(self.config.port))
-        self.bind((self.config.hostname, self.config.port))
-        self.listen(5)
-        
         self.users = {}
         self.channels = {}
 
         self.used_nicks = []
 
-    def handle_accepted(self, conn, address):
+    def handle_new_connection(self, con):
         """Handle a new connection to the server."""
         # The class is using the highest unique id to set it's own id.
         # Make sure it's always incremented after creating a new instnace.
-        self.handler_class(conn, address, self)
         self.highest_unique_id += 1
-
-    def handle_close(self):
-        self.close()
 
     def connect_user(self, user):
         """Add a user to the server"""

@@ -1,3 +1,5 @@
+import unittest
+
 class BasicTestCase(unittest.TestCase):
     def assertAllIn(self, first_list, second_list, msg=None):
         for x in first_list:
@@ -12,3 +14,6 @@ class BasicTestCase(unittest.TestCase):
 
     def assert_equal(self, *args, **kwargs):
         self.assertEqual(*args, **kwargs)
+
+    def assert_not_equal(self, *args, **kwargs):
+        self.assertNotEqual(*args, **kwargs)
