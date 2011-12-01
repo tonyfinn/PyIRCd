@@ -69,3 +69,16 @@ class OperTest(BasicServerTestCase):
         reply = {'command': 464, 'params': None, 'source': None}
         self.assert_true(reply in self.target_user.recieved_cmds,
             'User not notified of incorrect password')
+        
+class MotdTest(BasicServerTestCase):
+    def test_motd(self):
+        """Ensure the MOTD is correctly parsed into multiple messages."""
+        replies = [
+            {'command': 375, 'params': ['example.com'], 'source': None},
+            {'command': 372, 'params': ['Welcome.'], 'source': None},
+            {'command': 372, 'params': ['PyIRCd testing'], 'source': None},
+            {'command': 376, 'params': None, 'source': None}
+        ]
+        self.server.send_motd(self.source_user)
+        self.assert_all_in(replies, self.source_user.recieved_cmds,
+                'Missing MOTD response')
