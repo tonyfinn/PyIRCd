@@ -6,6 +6,12 @@ class MockConfig():
         self.hostname = 'example.com'
         self.port = 1337
         self.version = 'test-1'
+        self.opers = [
+            {'name': 'test', 'pw': 'testpass'}]
+        self.netname = "PyIRCd"
+        self.info = "Testing PyIRCd"
+        self.max_targets = 5
+        self.motd = "Welcome.\nPyIRCd testing"
 
 class MockServer():
     def __init__(self, config=None):

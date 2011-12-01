@@ -10,7 +10,7 @@ class MockUser:
         self.hostmask = username + '@' + host
         self.identifier = self.nick + '!' + self.hostmask
 
-        self.unique_id = self.server.highest_unique_id or 0
+        self.unique_id = self.server.highest_unique_id
         self.server.connect_user(self)
 
         self.modes = []
@@ -28,7 +28,7 @@ class MockUser:
         self.recived_cmds.append({'command': command, 'params': params,
             'source': source})
 
-    def send_numeric(self, numeric, params, source=None):
+    def send_numeric(self, numeric, params=None, source=None):
         self.recieved_cmds.append({'command': numeric.number, 'params':
             params, 'source': source})
 

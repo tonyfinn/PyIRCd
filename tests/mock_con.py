@@ -6,7 +6,10 @@ class MockCon():
         else:
             self.address = address
         self.server = server
-        self.unique_id = 0
+        if self.server is not None:
+            self.unique_id = self.server.highest_unique_id
+        else:
+            self.unique_id = 0
 
         self.user = None
         self.nick = None

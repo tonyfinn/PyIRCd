@@ -9,6 +9,9 @@ class BasicTestCase(unittest.TestCase):
     def assert_true(self, *args, **kwargs):
         self.assertTrue(*args, **kwargs)
 
+    def assert_false(self, *args, **kwargs):
+        self.assertFalse(*args, **kwargs)
+
     def assert_all_in(self, *args, **kwargs):
         self.assertAllIn(*args, **kwargs)
 

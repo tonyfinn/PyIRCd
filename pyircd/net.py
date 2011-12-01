@@ -123,7 +123,7 @@ class IRCNet:
                 user.send_numeric(numerics.RPL_YOUREOPER)
                 return
         
-        print("Failed OPER: ", user.identifer)
+        print("Failed OPER: ", user.identifier)
         user.send_numeric(numerics.ERR_PASSWDMISMATCH)
 
     def send_motd(self, user):
@@ -131,7 +131,7 @@ class IRCNet:
         user.send_numeric(numerics.RPL_MOTDSTART, [self.config.hostname])
         for line in self.config.motd.splitlines():
             user.send_numeric(numerics.RPL_MOTD, [line])
-        user.send_numeric(numerics.RPL_ENDOFMOTD, [])
+        user.send_numeric(numerics.RPL_ENDOFMOTD)
 
     def send_whois(self, whois_target, reply_user):
         """Send a user WHOIS details on another user."""
