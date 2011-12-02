@@ -4,7 +4,7 @@ from pyircd.message import *
 from pyircd.user import User
 from pyircd import numerics
 
-class IRCCon(asynchat.async_chat):
+class IRCCon(asynchat.async_chat): # pragma: no cover
     """Handles a single client's IRC Connection."""
     
     def __init__(self, socket, address, server):
