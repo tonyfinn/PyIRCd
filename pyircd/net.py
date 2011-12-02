@@ -10,7 +10,8 @@ from pyircd import numerics
 
 class InvalidChannelError(Exception): pass
 
-class NetworkHandler(asyncore.dispatcher):
+# Don't test this class as it's all about IO.
+class NetworkHandler(asyncore.dispatcher): # pragma: no cover
     def __init__(self, server, handler_class=IRCCon):
         asyncore.dispatcher.__init__(self)
         self.server = server
