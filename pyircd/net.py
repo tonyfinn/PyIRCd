@@ -60,9 +60,9 @@ class IRCNet:
         part reason.
         
         """
-        if user in self.users:
+        if user.unique_id in self.users:
             del self.users[user.unique_id]
-            used_nicks.remove(user.nick)
+            self.used_nicks.remove(user.nick)
         for channel in list(self.channels.keys()):
             if user in self.channels[channel]:
                 if reason:

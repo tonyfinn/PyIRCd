@@ -104,6 +104,13 @@ class ChannelTest(BasicServerTestCase):
         with self.assertRaises(NoSuchChannelError):
             self.server.get_channel('#doesnotexist')
 
+    def test_remove_channel(self):
+        tchan = MockChannel('#tempchan', self.server)
+        self.server.channels['#tempchan'] = tchan
+        self.server.remove_channel(tchan)
+        self.assert_not_in('#tempchan', self.server.channels,
+            'Channel not removed.')
+
 class JoinTest(BasicServerTestCase):
     def test_join_existing_channel(self):
         """Test that a user correctly joins an existing channel."""
@@ -127,3 +134,66 @@ class JoinTest(BasicServerTestCase):
             'User is not in channel')
         self.assert_true(chan.mode_on_user('o', self.source_user),
             'User was not given op priviliges')
+
+class QuitTest(BasicServerTestCase):
+    def setUp(self):
+        BasicServerTestCase.setUp(self)
+        self.channel = MockChannel('#test', self.server)
+        self.server.channels['#test'] = self.channel
+        self.server.join_user_to_channel(self.source_user, '#test')
+        self.server.join_user_to_channel(self.target_user, '#test')
+
+    def test_quit(self):
+        """Test a user quitting with no reason."""
+        uniqid = self.source_user.unique_id
+        nick = self.source_user.nick
+        self.server.quit_user(self.source_user)
+        self.assert_true(uniqid not in self.server.users,
+            'User still in the user list after quit')
+        self.assert_true(nick not in self.server.used_nicks,
+            "User's nick is still not free")
+
+        self.assert_true({'user': nick, 'msg': None} in self.channel.parts,
+            'User was not parted from channel')
+
+    def test_quit_with_reason(self):
+        """Test a user quitting while providing a reason."""
+        self.server.quit_user(self.target_user, 'boredom')
+        self.assert_true({'user': 'target', 'msg': 'boredom'} in
+            self.channel.parts,
+            'User was not parted with message')
+
+class WhoisTest(BasicServerTestCase):
+    """Test a whois is sent correctly."""
+    def test_whois(self):
+        self.server.join_user_to_channel(self.target_user, '#whoistest')
+
+        # Normally done by User object.
+        self.source_user.channels.append('#whoistest')
+        
+        self.server.send_whois('target', self.source_user)
+        
+        replies = [
+            {
+                'command': 311, 
+                'params': ['target', 'targetu', '127.0.0.1', 'targetn'],
+                'source': None 
+            },
+            {
+                'command': 312,
+                'params': ['target', 'PyIRCd', 'Testing PyIRCd'],
+                'source': None
+            },
+            {
+                'command': 319,
+                'params': ['target', '#whoistest'],
+                'source': None
+            },
+            {
+                'command': 318,
+                'params': ['target'],
+                'source': None
+            }
+        ]
+        self.assert_all_in(replies, self.source_user.recieved_cmds,
+            'Not all relevant whois details were sent correctly')

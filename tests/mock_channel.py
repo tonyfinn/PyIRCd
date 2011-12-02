@@ -16,6 +16,9 @@ class MockChannel:
         self.topic_sends = []
         self.userl_sends = []
 
+    def __contains__(self, user):
+        return user in self.users
+
     def join(self, user, key=None):
         self.joins.append({'user': user.nick, 'key': key})
         self.users.append(user)
