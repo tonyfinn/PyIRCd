@@ -30,8 +30,8 @@ class IRCNet:
 
     def __init__(self, config, handler_class=IRCCon,
             netaccess_class=NetworkHandler):
-        self.netaccess = netaccess_class(self)
         self.config = config
+        self.netaccess = netaccess_class(self)
         self.handler_class = handler_class
 
         self.highest_unique_id = 0
