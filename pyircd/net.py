@@ -89,7 +89,8 @@ class IRCNet:
     def get_channel(self, channel):
         """Get the channel object given a channel name.
         
-        Raises a KeyError if there is no such channel with that name.
+        Raises a NoSuchChannelError if there is no such channel with that name.
+
         """
         try:
             return self.channels[channel]
@@ -99,7 +100,8 @@ class IRCNet:
     def get_user(self, nick):
         """Get the user object for a nickname.
         
-        Raises a KeyError if the user is not connected to the server.
+        Raises a NoSuchUserError if the user is not connected to the server.
+
         """
         for user in self.users.values():
             if user.nick == nick:
@@ -117,6 +119,15 @@ class IRCNet:
         )
 
     def try_make_oper(self, user, opname, pw):
+        """Attempt to make a user an oper with the given name and password.
+
+        These are compared to the oper passwords that are stored in the
+        config. If a matching set of name and password is found, the user
+        is made an oper and notified of this. IF there is no match found,
+        the user is notified of an incorrect password, and the attempt 
+        is logged.
+
+        """
         for oper in self.config.opers:
             if opname == oper['name'] and pw == oper['pw']:
                 user.add_mode('O')

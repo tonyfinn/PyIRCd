@@ -6,6 +6,7 @@ from .mock_channel import MockChannel
 from pyircd.net import IRCNet
 from pyircd.user import User
 from pyircd.channel import Channel
+from pyircd.errors import NoSuchUserError, NoSuchChannelError
 
 class MockNetwork:
     def __init__(self, server, handler_class=MockCon):
@@ -53,6 +54,11 @@ class UserLocatingTest(BasicServerTestCase):
         self.assert_equal(self.source_user,
                 self.server.get_user(self.source_user.nick))
 
+    def test_disconnected_user(self):
+        """Test that the right exception is thrown upon not finding a user."""
+        with self.assertRaises(NoSuchUserError):
+            self.server.get_user('notjoined')
+
 class OperTest(BasicServerTestCase):
     def test_oper_allowed(self):
         """Test whether a user is made an oper if they are allowed be one."""
@@ -84,6 +90,19 @@ class MotdTest(BasicServerTestCase):
         self.server.send_motd(self.source_user)
         self.assert_all_in(replies, self.source_user.recieved_cmds,
                 'Missing MOTD response')
+
+class ChannelTest(BasicServerTestCase):
+    def test_channel_get_exists(self):
+        """Check finding a channel that does exist."""
+        tchan = MockChannel('#newchan', self.server)
+        self.server.channels['#newchan'] = tchan
+        self.assert_equal(self.server.get_channel('#newchan'), tchan,
+            'Wrong channel was returned.')
+
+    def test_channel_get_not_exists(self):
+        """Check the correct error is given for a non existing channel"""
+        with self.assertRaises(NoSuchChannelError):
+            self.server.get_channel('#doesnotexist')
 
 class JoinTest(BasicServerTestCase):
     def test_join_existing_channel(self):

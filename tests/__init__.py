@@ -20,3 +20,6 @@ class BasicTestCase(unittest.TestCase):
 
     def assert_not_equal(self, *args, **kwargs):
         self.assertNotEqual(*args, **kwargs)
+
+    def assert_raises(self, *args, **kwargs):
+        self.assertRaises(*args, **kwargs)
