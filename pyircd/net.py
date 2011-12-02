@@ -53,7 +53,13 @@ class IRCNet:
         self.used_nicks.append(user.nick)
 
     def quit_user(self, user, reason=None):
-        """Remove a user from the server"""
+        """Remove a user from the server.
+        
+        If the user is connected to any channels, the user will be parted 
+        from each channel. If a quit message is specified, it is used as the
+        part reason.
+        
+        """
         if user in self.users:
             del self.users[user.unique_id]
             used_nicks.remove(user.nick)
@@ -65,12 +71,26 @@ class IRCNet:
                     self.channels[channel].part(user)
 
     def remove_channel(self, channel):
-        """Remove a channel from the server."""
+        """Remove a channel from the server.
+        
+        This should only be called if the channel has no members. It does not
+        notify members about the removal of the channel.
+        
+        """
         if channel.name in self.channels:
             del self.channels[channel.name]
 
     def join_user_to_channel(self, user, channel, key=None):
-        """Add a user to a channel, creating it if it does not exist. """
+        """Add a user to a channel.
+        
+        If the channel does not exist, it will be created and added to the
+        server. The user will be made an op of the newly created channel.
+        If the channel does exist and has a key which does not match
+        that provided in the key parameter, a BadKeyError is raised. If a
+        limit is set on that channel, and the number of users is equal to or
+        greater than the limit, then a ChannelFullError is raised.
+        
+        """
         if channel in self.channels:
             self.channels[channel].join(user, key)
         elif is_channel_name(channel):
