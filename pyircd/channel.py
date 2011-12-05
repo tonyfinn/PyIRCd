@@ -31,16 +31,20 @@ class Channel:
         be raised.
 
         """
+        
+        if user in self:
+            return # Already in, do nothing
+
         if self.key is not None and key != self.key:
             raise BadKeyError(self.name)
 
         if self.limit is not None and len(self.users) == self.limit:
             raise ChannelFullError(self.name)
 
-        if user not in self:
-            self.users.append(user)
-            self.send_to_all(
-                Message('JOIN', [self.name], source=user.identifier))
+        self.users.append(user)
+        user.channels.append(self)
+        self.send_to_all(
+            Message('JOIN', [self.name], source=user.identifier))
 
     def part(self, user, msg=None):
         """Remove a user from the channel.

@@ -102,8 +102,6 @@ class IRCNet:
         else:
             raise InvalidChannelError("Invalid Channel Name")
 
-        user.channels.append(self.channels[channel])
-
         self.channels[channel].send_topic(user)
         self.channels[channel].send_user_list(user)
 
