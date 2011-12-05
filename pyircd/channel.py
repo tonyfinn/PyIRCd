@@ -21,7 +21,16 @@ class Channel:
         self.key = None
 
     def join(self, user, key=None):
-        """Join a user to the channel"""
+        """Join a user to the channel.
+
+        If the channel needs a key to get in, it will be checked against the
+        key parameter. If the key parameter and the needed key do not match
+        a BadKeyError will be raised. 
+
+        If the channel has a limit, and it is full, a ChannelFullError will
+        be raised.
+
+        """
         if self.key is not None and key != self.key:
             raise BadKeyError(self.name)
 
@@ -34,7 +43,12 @@ class Channel:
                 Message('JOIN', [self.name], source=user.identifier))
 
     def part(self, user, msg=None):
-        """Remove a user from the channel list."""
+        """Remove a user from the channel.
+
+        If msg is provided, it will be used as the PART message sent to all
+        other users in the channel.
+
+        """
         self.users.remove(user)
 
         if user.unique_id in self.usermodes:
@@ -48,13 +62,27 @@ class Channel:
                 Message('PART', [self.name], True, user.identifier))
         else:
             self.send_to_all(
-                Message('PART', [self.name, msg], True, user.identifier))
+                Message('PART', [self.name, msg], False, user.identifier))
         
         if len(self.users) == 0:
             self.server.remove_channel(self)
 
     def add_mode(self, mode, user, piter=None, source=None):
-        """Add a mode to a channel."""
+        """Add a mode to a channel.
+
+        mode refers to the mode that is currently trying to be set.
+
+        user refers to the user setting the mode.
+
+        piter is an iterator for an iterable that contains parameters that 
+        modes may need to be changed. If there isn't enough parameters
+        accessible through piter and another parameter is requested,
+        this method raises a InsufficientParamsError.
+
+        If the mode change is successful, this method sends a message to all
+        users in the channel.
+
+        """
         if mode in SIMPLE_MODES:
             self.modes.append(mode)
             self.send_to_all(
@@ -150,6 +178,7 @@ class Channel:
         """Remove a mode if the user is allowed to.
 
         Otherwise, tell them they can't.
+
         """
         if self.can_set_mode(user, mode):
             self.remove_mode(mode, user, piter, source)
@@ -174,6 +203,7 @@ class Channel:
 
         For the moment, it simply allows operators to set all
         modes, and no one else to set any modes.
+
         """
         return self.mode_on_user('o', user)
 
@@ -232,6 +262,7 @@ class Channel:
                 user.msg(source_user, self.name, message)
 
     def send_who(self, target_user):
+        """Send the response to a WHO query to a user."""
         for user in self.users:
             mode_prefix = self.get_mode_prefix(user)
             target_user.send_numeric(
@@ -258,6 +289,7 @@ class Channel:
 
         @ for ops
         + for voice.
+
         """
         if self.mode_on_user('o', user):
             return '@'
@@ -315,6 +347,7 @@ class Channel:
         """Set the topic if user is permitted.
 
         Otherwise, tell them that they can't.
+
         """
         if self.can_set_topic(user):
             if topic == '':
