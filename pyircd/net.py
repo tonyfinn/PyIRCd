@@ -15,6 +15,7 @@ class NetworkHandler(asyncore.dispatcher): # pragma: no cover
     def __init__(self, server, handler_class=IRCCon):
         asyncore.dispatcher.__init__(self)
         self.server = server
+        self.handler_class = handler_class
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.bind((self.server.config.hostname, self.server.config.port))
         self.listen(5)
