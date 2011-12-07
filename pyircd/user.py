@@ -29,6 +29,11 @@ def handler(func):
                 numerics.ERR_NOSUCHCHANNEL,
                 [e.channel]
             )
+        except NeedChanOpError as e:
+            self.send_numeric(
+                numerics.ERR_CHANOPRIVSNEEDED,
+                [e.channel]
+            )
     return inner_handler
 
 def min_params(num_params):
@@ -240,13 +245,7 @@ class User:
         if len(params) == 1:
             chan_obj.send_mode_info(self)
         else:
-            try:
-                chan_obj.try_mode_changes(self, params[1], params[2:])
-            except NeedChanOpError:
-                self.send_numeric(
-                    numerics.ERR_CHANOPRIVSNEEDED,
-                    [channel]
-                )
+            chan_obj.try_mode_changes(self, params[1], params[2:])
 
     def handle_user_mode(self, params):
         nick = params[0]
