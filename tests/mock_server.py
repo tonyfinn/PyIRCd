@@ -26,7 +26,7 @@ class MockServer():
         self.return_user = None
         self.return_channel = None
 
-        self.highest_unique_id = 47
+        self.highest_unique_id = 0
         
     def set_return_user(self, user):
         self.return_user = user
@@ -61,4 +61,4 @@ class MockServer():
         return self.return_user
 
     def connect_user(self, user):
-        pass
+        self.highest_unique_id += 1
