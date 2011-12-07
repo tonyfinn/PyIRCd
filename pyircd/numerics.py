@@ -92,6 +92,9 @@ ERR_NICKNAMEINUSE = NumericReply(433, "{} :Nickname already in use")
 # Nick, channel
 ERR_USERNOTINCHANNEL = NumericReply(441, "{} {} :They aren't on that channel")
 
+# Channel
+ERR_NOTONCHANNEL = NumericReply(442, "{}: You're not on that channel")
+
 # Command attempted
 ERR_NEEDMOREPARAMS = NumericReply(461, "{} :Not enough parameters")
 

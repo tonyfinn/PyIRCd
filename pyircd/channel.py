@@ -14,7 +14,7 @@ class Channel:
         self.name = name
         self.users = []
         self.usermodes = {}
-        self.modes = []
+        self.modes = set()
         self.server = server
         self.topic = None
         self.limit = None
@@ -29,6 +29,10 @@ class Channel:
 
         If the channel has a limit, and it is full, a ChannelFullError will
         be raised.
+
+        If the user manages to join successfully, all other users in the
+        channel will be sent a JOIN message to inform them of the new user
+        joining the channel.
 
         """
         
@@ -52,7 +56,17 @@ class Channel:
         If msg is provided, it will be used as the PART message sent to all
         other users in the channel.
 
+        Any modes not in PERSISTENT_MODES that the user has on the channel 
+        will be removed. All other users on the channel will be notified of
+        their departure from the channel.
+
+        If the user is not on the channel, they will be sent a
+        ERR_NOTONCHANNEL numeric to notify them of this.
+
         """
+        if user not in self:
+            user.send_numeric(numerics.ERR_NOTONCHANNEL, [self.name])
+            return
         self.users.remove(user)
 
         if user.unique_id in self.usermodes:
@@ -78,7 +92,7 @@ class Channel:
 
         user refers to the user setting the mode.
 
-        piter is an iterator for an iterable that contains parameters that 
+        piter is an iterator for an iterable that contains parameters for 
         modes may need to be changed. If there isn't enough parameters
         accessible through piter and another parameter is requested,
         this method raises a InsufficientParamsError.
@@ -88,7 +102,7 @@ class Channel:
 
         """
         if mode in SIMPLE_MODES:
-            self.modes.append(mode)
+            self.modes.add(mode)
             self.send_to_all(
                 Message('MODE', [self.name, '+' + mode], source=source))
         else:
@@ -114,19 +128,26 @@ class Channel:
             self.send_to_all(
                 Message('MODE', [self.name, '-' + mode], source=source))
         else:
-            try:
-                param = next(piter)
-            except StopIteration:
-                raise InsufficientParamsError('MODE')
+            if piter is not None:
+                try:
+                    param = next(piter)
+                except StopIteration:
+                    param = None
+            else:
+                param = None
 
             if mode == 'l':
                 self.limit = None
             elif mode =='k':
                 self.key = None
+
+            rep_params = [self.name, '-' + mode]
+            if param is not None:
+                rep_params.append(param)
             
             self.send_to_all(
                 Message(
-                    'MODE', [self.name, '-' + mode, param], source=source))
+                    'MODE', rep_params, source=source))
 
     def try_add_user_mode(self, user, mode, piter, source=None):
         """Try to add a mode to a user in this channel, checking for privs"""
