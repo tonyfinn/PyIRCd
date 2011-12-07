@@ -6,7 +6,7 @@ from .mock_user import MockUser
 
 from pyircd.channel import Channel
 from pyircd.errors import BadKeyError, ChannelFullError, \
-InsufficientParamsError
+InsufficientParamsError, NeedChanOpError
 
 class ChannelTest(BasicTestCase):
     def setUp(self):
@@ -204,3 +204,65 @@ class ChannelModeTest(ChannelTest):
             self.assert_true(
                 self.tchan.has_mode(mode),
                 'The channel does not have mode {}'.format(mode))
+
+class UserModeTest(ChannelModeTest):
+    def test_adding_new_mode(self):
+        """Test adding a mode to a user who has no modes."""
+        self.tchan.add_mode_to_user('o', self.users[0], notify=False)
+        self.assert_in(
+            'o', self.tchan.usermodes[self.users[0].unique_id],
+            'The user was not given the o mode')
+
+    def test_adding_second_mode(self):
+        """Test adding two modes to the wrong user."""
+        self.tchan.add_mode_to_user('o', self.users[1], notify=False)
+        self.tchan.add_mode_to_user('v', self.users[1], notify=False)
+        self.assert_all_in(
+            ['o', 'v'], self.tchan.usermodes[self.users[1].unique_id],
+            'One of the modes was not on the user')
+
+    def test_mode_on_user(self):
+        """Test checking a user has a mode."""
+        self.tchan.add_mode_to_user('v', self.users[2], notify=False)
+        self.assert_true(
+            self.tchan.mode_on_user('v', self.users[2]),
+            'User was not shown to have v mode')
+        self.assert_false(
+            self.tchan.mode_on_user('o', self.users[2]),
+            'User was incorrectly shown to have o mode')
+
+    def test_mode_prefix(self):
+        """Test users are given the correct mode prefix."""
+        self.tchan.add_mode_to_user('o', self.users[3], notify=False)
+        self.tchan.add_mode_to_user('v', self.users[4], notify=False)
+        self.assert_equal(
+            '@', self.tchan.get_mode_prefix(self.users[3]),
+            'Ops were not given correct mode prefix.')
+        self.assert_equal(
+            '+', self.tchan.get_mode_prefix(self.users[4]),
+            'Voiced users were not given correct mode prefix')
+        self.tchan.usermodes[self.users[3].unique_id] = set()
+        
+        self.assert_equal(
+            '', self.tchan.get_mode_prefix(self.users[3]),
+            'User was given unessecary prefix')
+
+class TopicPermTest(ChannelTest):
+    def test_topic_set_disallowed(self):
+        """Test a user setting their topic when they're not allowed."""
+        with self.assertRaises(NeedChanOpError):
+            self.tchan.try_set_topic(self.users[0], 'HarHar')
+
+    def test_topic_set_allowed(self):
+        """Test a user setting the topic when they're allowed."""
+        self.tchan.add_mode_to_user('o', self.users[0])
+        self.tchan.try_set_topic(self.users[0], 'allowed')
+        self.assert_equal(
+            'allowed', self.tchan.topic, 'Topic was not set correctly.')
+
+    def test_topic_blank_allowed(self):
+        """Test a user blanking the topic when they're allowed."""
+        self.tchan.add_mode_to_user('o', self.users[0])
+        self.tchan.try_set_topic(self.users[0], '')
+        self.assert_true(
+            self.tchan.topic is None, 'Topic was not blanked correctly.')
