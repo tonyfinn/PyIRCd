@@ -70,17 +70,17 @@ class Channel:
         self.users.remove(user)
 
         if user.unique_id in self.usermodes:
-            for mode in self.usermodes[user.unique_id][:]:
+            for mode in self.usermodes[user.unique_id].copy():
                 if mode not in PERSISTENT_MODES:
                     self.remove_mode_from_user(mode, user)
 
         user.channels.remove(self)
         if msg is None:
             self.send_to_all(
-                Message('PART', [self.name], True, user.identifier))
+                Message('PART', [self.name], False, user.identifier))
         else:
             self.send_to_all(
-                Message('PART', [self.name, msg], False, user.identifier))
+                Message('PART', [self.name, msg], True, user.identifier))
         
         if len(self.users) == 0:
             self.server.remove_channel(self)
@@ -166,7 +166,7 @@ class Channel:
             )
 
     def try_remove_user_mode(self, user, mode, piter, source=None):
-        """Try to add a mode to a user in this channel, checking for privs"""
+        """Try to remove a mode from a user in this channel, checking for privs"""
         try:
             target = next(piter)
         except StopIteration:
@@ -181,10 +181,19 @@ class Channel:
                 [target, self.name]
             )
 
-    def send_to_all(self, msg):
-        """Send a message to every user in this channel."""
+    def send_to_all(self, msg, exceptions=None):
+        """Send a message to every user in this channel.
+
+        If there are some users that should not recieve this message,
+        add them to the exceptions parameter, which is a list of users who
+        will be excluded from recieving this message.
+
+        """
+        if exceptions is None:
+            exceptions = []
         for user in self.users:
-            user.send_msg(msg)
+            if user not in exceptions:
+                user.send_msg(msg)
 
     def try_add_mode(self, user, mode, piter, source):
         """Add a mode if the user is allowed to.
@@ -237,11 +246,17 @@ class Channel:
         return self.mode_on_user('o', user)
 
     def add_mode_to_user(self, mode, user, source=None, notify=True):
-        """Set a mode on a user within this channel."""
+        """Set a mode on a user within this channel.
+        
+        Modes can be set on users that are not in the channel, but most modes
+        will be removed when a user leaves a channel. All users in the channel
+        will be notified of the mode change.
+
+        """
         if user.unique_id in self.usermodes:
-            self.usermodes[user.unique_id].append(mode)
+            self.usermodes[user.unique_id].add(mode)
         else:
-            self.usermodes[user.unique_id] = [mode]
+            self.usermodes[user.unique_id] = set(mode)
 
         if notify:
             self.notify_mode_change(mode, '+', user, source)
@@ -282,9 +297,11 @@ class Channel:
 
     def msg(self, source_user, message): 
         """Send a messsage to the channel."""
-        for user in self.users:
-            if user != source_user:
-                user.msg(source_user, self.name, message)
+        message = Message(
+            'PRIVMSG', [self.name, message], True,
+            source=source_user.identifier)
+
+        self.send_to_all(message, exceptions=[source_user])
 
     def send_who(self, target_user):
         """Send the response to a WHO query to a user."""
@@ -371,7 +388,12 @@ class Channel:
     def try_set_topic(self, user, topic):
         """Set the topic if user is permitted.
 
-        Otherwise, tell them that they can't.
+        If the new topic is blank, the channel topic will be removed. If a
+        topic is specified, it will be used as the new topic. All users in the
+        channel will be notified of the topic change.
+
+        If the user is not permitted to change the topic, a NeedChanOpError
+        will be raised instead of the topic being changed.
 
         """
         if self.can_set_topic(user):
