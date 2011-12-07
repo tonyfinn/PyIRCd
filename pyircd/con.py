@@ -62,6 +62,11 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
             self.send_raw(build_irc_msg('PONG', [info], True,
                 self.server.config.hostname))
 
+    def handle_error(self):
+        if self.user:
+            self.server.quit_user(self.user, "Internet Server Error")
+        asynchat.async_chat.handle_error(self)
+
     def handle_close(self):
         if self.user:
             self.server.quit_user(self.user, "Connection Lost")
