@@ -4,6 +4,7 @@ from pyircd.message import Message, msg_from_string, InvalidMessageError, \
 from pyircd.errors import NoSuchUserError, NoSuchChannelError, \
         InsufficientParamsError, BadKeyError, NeedChanOpError, ChannelFullError
 from pyircd import numerics
+from .base_user import BaseUser
 
 from functools import wraps
 from itertools import zip_longest
@@ -50,7 +51,7 @@ def min_params(num_params):
         return handler
     return decorate
 
-class User:
+class User(BaseUser):
 
     def __init__(self, nick, username, real_name, host, server, connection):
         self.handle_commands = {
@@ -119,16 +120,6 @@ class User:
             [''.join(self.modes)]
         )
 
-    @property
-    def hostmask(self):
-        return self.username + '@' + self.host
-
-    @property
-    def identifier(self):
-        return self.nick + '!' + self.username + '@' + self.host
-
-    def add_mode(self, mode):
-        self.modes.append(mode)
 
     def handle_cmd(self, msg):
         try:
@@ -292,42 +283,27 @@ class User:
         """Send a numeric command to the user"""
         if sparams is None:
             sparams = []
+
+        if source is None:
+            source = self.server
+
         message = numeric.message.format(*sparams)
         params = [self.nick] + irc_msg_split(message, False)
 
-        self.send_cmd(
+        self.send_msg(Message(
             numeric.num_str,
             params,
             numeric.final_multi, 
             source
-        )
+        ))
 
     def send_msg(self, message):
         """Send a message object as an IRC message."""
         self.send_raw(str(message))
 
-    def send_cmd(self, command, params, final_param_multi_word=False,
-            source=None):
-        """Send a command formatted as an IRC message appropriately"""
-        if not source:
-            source = self.server.config.hostname
-        irc_msg = build_irc_msg(command, params, final_param_multi_word,
-                source)
-        self.send_raw(irc_msg)
-
     def send_raw(self, message):
         self.connection.send_raw(message)
-
-    def msg(self, source, channel, msg):
-        """Send a message to the user"""
-
-        msg = Message('PRIVMSG', [channel, msg], True, source.idenfifier)
-        self.send_msg(msg)
 
     def can_set_own_mode(self, mode):
         """Check if a user can set a mode on themselves."""
         return mode not in ['o', 'O']
-
-    def __str__(self):
-        return self.identifier
-
