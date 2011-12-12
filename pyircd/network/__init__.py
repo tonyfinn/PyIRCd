@@ -37,4 +37,4 @@ class IRCNetwork:
         pass
 
     def add_user(self, user):
-        self.used_nicks
+        self.used_nicks.append(user.nick)
