@@ -1,12 +1,14 @@
 import asyncore
 import socket
-from pyircd.con import IRCCon
-from pyircd.channel import Channel
-from pyircd.message import Message
-from pyircd.errors import NoSuchUserError, NoSuchChannelError, \
+import logging
+
+from .con import IRCCon
+from ..channel import Channel
+from ..message import Message
+from ..errors import NoSuchUserError, NoSuchChannelError, \
 InsufficientParamsError
-from pyircd.ircutils import *
-from pyircd import numerics
+from ..ircutils import *
+from .. import numerics
 
 class InvalidChannelError(Exception): pass
 
@@ -27,10 +29,10 @@ class NetworkHandler(asyncore.dispatcher): # pragma: no cover
     def handle_close(self):
         self.close()
 
-class IRCNet:
+class IRCServer:
     """Handles the network aspect of the IRC server."""
 
-    def __init__(self, config, handler_class=IRCCon,
+    def __init__(self, config, network, handler_class=IRCCon,
             netaccess_class=NetworkHandler):
         self.config = config
         self.netaccess = netaccess_class(self)
@@ -41,7 +43,15 @@ class IRCNet:
         self.users = {}
         self.channels = {}
 
-        self.used_nicks = []
+        self.network = network
+
+    @property
+    def used_nicks(self):
+        return self.network.used_nicks
+
+    @property
+    def source_str(self):
+        return self.config.hostname
 
     def handle_new_connection(self, con):
         """Handle a new connection to the server."""
@@ -99,7 +109,7 @@ class IRCNet:
             self.channels[channel] = Channel(channel, self)
             self.channels[channel].join(user, key)
             self.channels[channel].add_mode_to_user('o', user, 
-                source=self.config.hostname)
+                source=self)
         else:
             raise InvalidChannelError("Invalid Channel Name")
 
@@ -154,7 +164,7 @@ class IRCNet:
                 user.send_numeric(numerics.RPL_YOUREOPER)
                 return
         
-        print("Failed OPER: ", user.identifier)
+        logging.warn("Failed OPER: ", user.identifier)
         user.send_numeric(numerics.ERR_PASSWDMISMATCH)
 
     def send_motd(self, user):

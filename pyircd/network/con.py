@@ -1,4 +1,5 @@
 import asynchat
+import logging
 from pyircd.ircutils import *
 from pyircd.message import *
 from pyircd.user import User
@@ -15,7 +16,8 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
 
         self.unique_id = server.highest_unique_id
         self.set_terminator(b'\r\n')
-        self.user = None;
+        self.user = None
+        self.con_server = None
 
         self.nick = None; # Ignored after initial auth
 
@@ -35,11 +37,11 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
         # where they shouldn't. *cough* libpurple JOIN *cough*
         try: 
             msg = msg_bytes.decode(encoding='utf-8').strip()
-            print("Recieved: " + msg)
+            logging.info("Recieved: " + msg)
             if msg.startswith('PING'):
                 # Totally unrelated to the user layer, handle here.
                 self.handle_ping(msg)
-            elif self.user is None:
+            elif self.user is None and self.con_server is None:
                 if msg.startswith('NICK'):
                     self.handle_initial_nick(msg)
                 elif msg.startswith('USER'):
@@ -47,7 +49,8 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
 
                 if self.nick_done and self.user_done:
                     self.create_user()
-            else:
+            elif self.user is not None:
+                msg = msg_from_string(msg)
                 self.user.handle_cmd(msg)
         finally: 
             # Make sure the buffer gets emptied out in case of an error
@@ -119,4 +122,4 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
         self.user = User(self.nick, self.username, self.real_name, self.addr,
                 self.server, self)
         self.server.connect_user(self.user)
-        print(self.user.identifier + " joined.")
+        logging.info(self.user.identifier + " joined.")
