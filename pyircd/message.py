@@ -1,3 +1,5 @@
+import logging
+
 class InvalidMessageError(Exception):
     pass
 
@@ -7,6 +9,9 @@ class Message:
         self.params = params
         self.command = command
         self.final_param_multi = final_param_multi
+        if source is None and command != 'PING':
+            logging.info('Source-less %s message created.', command)
+        self.source = source
 
     @property
     def last(self):
@@ -19,7 +24,7 @@ class Message:
             final_param = self.params[-1]
 
         if self.source:
-            prefix = ':' + self.source
+            prefix = ':' + self.source.source_str
         else:
             prefix = ''
 
@@ -30,7 +35,7 @@ class Message:
 
         return ' '.join(parts).strip() + '\r\n'
 
-def msg_from_string(msg_str):
+def msg_from_string(msg_str, default_source=None):
     """Take an IRC message string and return a Message object. 
 
     The message needs to be a complete message.
@@ -42,7 +47,7 @@ def msg_from_string(msg_str):
             source = before[1:] # Drop colon
             msg_str = after
         else:
-            source = None
+            source = default_source
 
         final_part_multi = False
         if ':' in msg_str:
