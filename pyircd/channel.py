@@ -3,9 +3,11 @@ from pyircd.message import Message
 from pyircd.errors import InsufficientParamsError, ChannelFullError, \
 BadKeyError, NeedChanOpError
 
-PERSISTENT_MODES = ['b']
-PARAM_MODES = ['b', 'o', 'v', 'l', 'k'] # Ban, op, voice, limit, key
-SIMPLE_MODES = ['m', 's', 'i', 't'] # Modded, secret, invite only, topic lock
+# limit, key, ban, exception
+PARAM_MODES = ['l', 'k', 'b', 'e'] 
+# Modded, secret, invite only, topic lock
+SIMPLE_MODES = ['m', 's', 'i', 't', 'n'] 
+# Op, voice
 USER_MODES = ['o', 'v']
 
 
@@ -19,6 +21,9 @@ class Channel:
         self.topic = None
         self.limit = None
         self.key = None
+
+        self.ban_masks = []
+        self.except_masks = []
 
     def join(self, user, key=None):
         """Join a user to the channel.
@@ -48,7 +53,7 @@ class Channel:
         self.users.append(user)
         user.channels.append(self)
         self.send_to_all(
-            Message('JOIN', [self.name], source=user.identifier))
+            Message('JOIN', [self.name], source=user))
 
     def part(self, user, msg=None):
         """Remove a user from the channel.
@@ -70,22 +75,20 @@ class Channel:
         self.users.remove(user)
 
         if user.unique_id in self.usermodes:
-            for mode in self.usermodes[user.unique_id].copy():
-                if mode not in PERSISTENT_MODES:
-                    self.remove_mode_from_user(mode, user)
+            del self.usermodes[user.unique_id]
 
         user.channels.remove(self)
         if msg is None:
             self.send_to_all(
-                Message('PART', [self.name], False, user.identifier))
+                Message('PART', [self.name], False, user))
         else:
             self.send_to_all(
-                Message('PART', [self.name, msg], True, user.identifier))
+                Message('PART', [self.name, msg], True, user))
         
         if len(self.users) == 0:
             self.server.remove_channel(self)
 
-    def add_mode(self, mode, user, piter=None, source=None):
+    def add_mode(self, mode, user, piter=None):
         """Add a mode to a channel.
 
         mode refers to the mode that is currently trying to be set.
@@ -104,8 +107,8 @@ class Channel:
         if mode in SIMPLE_MODES:
             self.modes.add(mode)
             self.send_to_all(
-                Message('MODE', [self.name, '+' + mode], source=source))
-        else:
+                Message('MODE', [self.name, '+' + mode], source=user))
+        elif mode in PARAM_MODES:
             try:
                 param = next(piter)
             except StopIteration:
@@ -117,16 +120,21 @@ class Channel:
                     return # Spec seems to just want modes ignored if not valid
             elif mode == 'k':
                 self.key = param
+            elif mode == 'b':
+                self.add_mask_to_list(param, self.ban_masks)
+            elif mode == 'e':
+                self.add_mask_to_list(param, self.except_masks)
+
             self.send_to_all(
                 Message(
                     'MODE', [self.name, '+' + mode, param], source=source))
 
-    def remove_mode(self, mode, user, piter=None, source=None):
+    def remove_mode(self, mode, user, piter=None):
         """Remove a mode from the channel."""
         if mode in SIMPLE_MODES:
             self.modes.remove(mode)
             self.send_to_all(
-                Message('MODE', [self.name, '-' + mode], source=source))
+                Message('MODE', [self.name, '-' + mode], source=user))
         else:
             if piter is not None:
                 try:
@@ -140,6 +148,10 @@ class Channel:
                 self.limit = None
             elif mode =='k':
                 self.key = None
+            elif mode == 'b':
+                self.remove_mask_from_list(param, self.ban_masks)
+            elif mode == 'e':
+                self.remove_mask_from_list(param, self.except_masks)
 
             rep_params = [self.name, '-' + mode]
             if param is not None:
@@ -147,9 +159,45 @@ class Channel:
             
             self.send_to_all(
                 Message(
-                    'MODE', rep_params, source=source))
+                    'MODE', rep_params, source=user))
 
-    def try_add_user_mode(self, user, mode, piter, source=None):
+    def add_mask_to_list(self, mask, lst):
+        """Add a mask to one of the related lists.
+
+        mask is the mask that should be added, lst is the list it should be
+        added to.
+
+        This is a helper method that should only be called from MODE handlers.
+        If the mask param is None, it raises a InsufficientParamsError.
+        Otherwise, it adds the param to the list.
+
+        """
+        if mask is None:
+            raise InsufficientParamsError('MODE')
+        else:
+            lst.append(mask)
+
+    def remove_mask_from_list(self, mask, lst):
+        """Remove a mask from one of the related lists.
+
+        mask is the user mask that should be removed. lst is the list it 
+        should be removed from.
+
+        This is a helper method that should only be called when dealing with
+        MODE messages. If the mask param is None, it raises an
+        InsufficientParamsError. If the mask is in the list, it removes it
+        from the list. If it is not in the list, no action is taken.
+
+        """
+        if mask is None:
+            raise InsufficentParamsError('MODE')
+        else:
+            try:
+                lst.remove(mask)
+            except ValueError:
+                pass # No message to be relayed as per spec.
+
+    def try_add_user_mode(self, user, mode, piter):
         """Try to add a mode to a user in this channel, checking for privs"""
         try:
             target = next(piter)
@@ -158,14 +206,14 @@ class Channel:
 
         tuser = self.server.get_user(target)
         if tuser in self.users:
-            self.add_mode_to_user(mode, tuser, source)
+            self.add_mode_to_user(mode, tuser, source=user)
         else: 
             user.send_numeric(
                 numerics.ERR_USERNOTINCHANNEL,
                 [target, self.name]
             )
 
-    def try_remove_user_mode(self, user, mode, piter, source=None):
+    def try_remove_user_mode(self, user, mode, piter):
         """Try to remove a mode from a user in this channel, checking for privs"""
         try:
             target = next(piter)
@@ -174,7 +222,7 @@ class Channel:
 
         tuser = self.server.get_user(target)
         if tuser in self.users:
-            self.remove_mode_from_user(mode, tuser, source)
+            self.remove_mode_from_user(mode, tuser, user)
         else: 
             user.send_numeric(
                 numerics.ERR_USERNOTINCHANNEL,
@@ -195,27 +243,38 @@ class Channel:
             if user not in exceptions:
                 user.send_msg(msg)
 
-    def try_add_mode(self, user, mode, piter, source):
+    def try_add_mode(self, user, mode, piter):
         """Add a mode if the user is allowed to.
 
         Otherwise tell them they can't.
         """
         if self.can_set_mode(user, mode):
             if mode in USER_MODES:
-                self.try_add_user_mode(user, mode, piter, source=source)
+                self.try_add_user_mode(user, mode, piter)
             else:
-                self.add_mode(mode, user, piter, source=source)
+                self.add_mode(mode, user, piter)
         else:
             raise NeedChanOpError(self.name)
 
-    def try_remove_mode(self, user, mode, piter, source=None):
+    def try_remove_mode(self, user, mode, piter):
         """Remove a mode if the user is allowed to.
 
         Otherwise, tell them they can't.
 
         """
         if self.can_set_mode(user, mode):
-            self.remove_mode(mode, user, piter, source)
+            if mode in USER_MODES:
+                self.try_remove_user_mode(user, mode, piter)
+            else:
+                self.remove_mode(mode, user, piter)
+            self.remove_mode(mode, user, piter)
+
+        else:
+            raise NeedChanOpError(self.name)
+
+    def try_display_mode(self, user, mode, piter):
+        """TODO: Implement ban list display."""
+        pass
 
     def try_mode_changes(self, user, modes, params=None):
         """Attempts to change a list of modes as provided by MODE."""
@@ -228,9 +287,11 @@ class Channel:
             
         for char in modes[1:]:
             if removing:
-                self.try_remove_mode(user, char, piter, user.identifier)
+                self.try_remove_mode(user, char, piter)
             elif adding:
-                self.try_add_mode(user, char, piter, user.identifier)
+                self.try_add_mode(user, char, piter)
+            else:
+                self.try_display_mode(user, char, piter)
 
     def can_set_mode(self, user, mode):
         """Check if a given user can set a mode.
@@ -273,6 +334,10 @@ class Channel:
             self.notify_mode_change(mode, '-', user, source)
 
     def notify_mode_change(self, mode, change, user, source=None):
+
+        if source is None:
+            source = self.server
+
         self.send_to_all(Message(
             'MODE', 
             [self.name, change + mode, user.nick],
@@ -299,7 +364,7 @@ class Channel:
         """Send a messsage to the channel."""
         message = Message(
             'PRIVMSG', [self.name, message], True,
-            source=source_user.identifier)
+            source=source_user)
 
         self.send_to_all(message, exceptions=[source_user])
 
@@ -404,7 +469,7 @@ class Channel:
 
                 self.send_to_all(
                     Message('TOPIC', [self.name, topic], True,
-                            user.identifier))
+                            user))
         else:
             raise NeedChanOpError(self.name)
 
