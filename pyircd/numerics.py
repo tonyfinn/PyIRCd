@@ -26,7 +26,8 @@ RPL_MYINFO = NumericReply(4, "{} {} {} {}", False)
 
 # Network name
 RPL_ISUPPORT = NumericReply(5, "PREFIX=(ov)@+ CHANTYPES=#& NETWORK={}"
-" CASEMAPPING=ascii :are supported by this server")
+" CASEMAPPING=ascii CHANMODES=beI,k,l,imnst EXCEPTS=e CHANNELLEN=32"
+":are supported by this server")
 
 # Modes
 RPL_UMODEIS = NumericReply(221, "+{}", False)
