@@ -122,15 +122,9 @@ class User(BaseUser):
 
 
     def handle_cmd(self, msg):
-        try:
-            command = msg.split(' ')[0].upper()
-        except IndexError:
-            return # Invalid command, do nothing
-        try:
-            func = self.handle_commands.get(command, self.handle_unknown)
-            func(msg_from_string(msg))
-        except InvalidMessageError:
-            pass # Also invalid command
+        func = self.handle_commands.get(
+            msg.command.upper(), self.handle_unknown)
+        func(msg)
     
     def handle_unknown(self, msg):
         self.send_numeric(numerics.ERR_UNKNOWNCOMMAND, [msg.command])
