@@ -3,10 +3,9 @@ import socket
 import logging
 
 from .con import IRCCon
-from ..channel import Channel
+from ..channel import Channel, join_user_to_channel, NoSuchChannelError
 from ..message import Message
-from ..errors import NoSuchUserError, NoSuchChannelError, \
-InsufficientParamsError
+from ..errors import NoSuchUserError, InsufficientParamsError
 from ..ircutils import *
 from .. import numerics
 
@@ -23,7 +22,7 @@ class NetworkHandler(asyncore.dispatcher): # pragma: no cover
         self.listen(5)
 
     def handle_accepted(self, conn, address):
-        con = self.handler_class(conn, address, self.server)
+        con = self.handler_class(conn, address, self.server.network)
         self.server.handle_new_connection(con)
 
     def handle_close(self):
@@ -72,15 +71,12 @@ class IRCServer:
         part reason.
         
         """
-        if user.unique_id in self.users:
+        if user.unique_id is not None and user.unique_id in self.users:
             del self.users[user.unique_id]
             self.used_nicks.remove(user.nick)
-        for channel in list(self.channels.keys()):
-            if user in self.channels[channel]:
-                if reason:
-                    self.channels[channel].part(user, reason)
-                else:
-                    self.channels[channel].part(user)
+        for channel in self.channels.values():
+            if user in channel:
+                channel.part(user, reason)
 
     def remove_channel(self, channel):
         """Remove a channel from the server.
@@ -103,18 +99,12 @@ class IRCServer:
         greater than the limit, then a ChannelFullError is raised.
         
         """
-        if channel in self.channels:
-            self.channels[channel].join(user, key)
-        elif is_channel_name(channel):
-            self.channels[channel] = Channel(channel, self)
-            self.channels[channel].join(user, key)
-            self.channels[channel].add_mode_to_user('o', user, 
-                source=self)
-        else:
-            raise InvalidChannelError("Invalid Channel Name")
+        if channel[0] == '#':
+            container = self.network
+        elif channel[0] == '&':
+            container = self
 
-        self.channels[channel].send_topic(user)
-        self.channels[channel].send_user_list(user)
+        join_user_to_channel(container, user, channel, key, self)
 
     def get_channel(self, channel):
         """Get the channel object given a channel name.
@@ -125,7 +115,7 @@ class IRCServer:
         try:
             return self.channels[channel]
         except KeyError:
-            raise NoSuchChannelError(channel)
+            return self.network.get_channel(channel)
 
     def get_user(self, nick):
         """Get the user object for a nickname.

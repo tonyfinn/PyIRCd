@@ -1,7 +1,7 @@
-from . import NoSuchUserError
+from ..errors import NoSuchUserError
 
 class RemoteServer:
-    def __init__(self, id_, network, con):
+    def __init__(self, sname, hopcount, token, network, con):
         self.network = network
         self.con = con
         self.commands = {
@@ -48,3 +48,6 @@ class RemoteServer:
                 return user
 
         raise NoSuchUserError(nick)
+
+    def send_msg(self, msg):
+        self.con.send_raw(str(msg))

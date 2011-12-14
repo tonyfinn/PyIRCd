@@ -8,15 +8,17 @@ from pyircd import numerics
 class IRCCon(asynchat.async_chat): # pragma: no cover
     """Handles a single client's IRC Connection."""
     
-    def __init__(self, socket, address, server):
+    def __init__(self, socket, address, network):
         asynchat.async_chat.__init__(self, sock=socket)
         self.socket = socket
         self.address = address
-        self.server = server
+        self.server = network.local_server
+        self.network = network
 
-        self.unique_id = server.highest_unique_id
+        self.unique_id = self.server.highest_unique_id
         self.set_terminator(b'\r\n')
         self.user = None
+        self.pw = None
         self.con_server = None
 
         self.nick = None; # Ignored after initial auth
@@ -27,47 +29,54 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
         self.nick_done = False
         self.user_done = False
 
+        self.handlers = {
+            'NICK': self.handle_nick,
+            'PASS': self.handle_pass,
+            'USER': self.handle_user,
+            'SERVER': self.handle_server
+        }
+
     def collect_incoming_data(self, data):
         self.ibuffer.append(data)
 
     def found_terminator(self):
         msg_bytes = b''.join(self.ibuffer)
 
-        # Some clients leave trailing spaces at the end
-        # where they shouldn't. *cough* libpurple JOIN *cough*
         try: 
-            msg = msg_bytes.decode(encoding='utf-8').strip()
-            logging.info("Recieved: " + msg)
-            if msg.startswith('PING'):
+            mstr = msg_bytes.decode(encoding="utf-8").strip()
+            logging.info("Recieved: " + mstr)
+            msg = msg_from_string(mstr)
+            if msg.command == 'PING':
                 # Totally unrelated to the user layer, handle here.
                 self.handle_ping(msg)
             elif self.user is None and self.con_server is None:
-                if msg.startswith('NICK'):
-                    self.handle_initial_nick(msg)
-                elif msg.startswith('USER'):
-                    self.handle_user(msg)
+                try:
+                    handler = self.handlers.get(msg.command)
+                    handler(msg)
+                except KeyError:
+                    pass # Unrecognised command, ignore for now.
 
                 if self.nick_done and self.user_done:
                     self.create_user()
             elif self.user is not None:
-                msg = msg_from_string(msg)
                 self.user.handle_cmd(msg)
+            elif self.con_server is not None:
+                self.con_server.handle_cmd(msg)
         finally: 
             # Make sure the buffer gets emptied out in case of an error
             # Otherwise the connection ends up continously erroring on the
             # one message.
             self.ibuffer = []
 
-    def handle_ping(self, msg_str):
-        msg = msg_from_string(msg_str)
+    def handle_ping(self, msg):
         if len(msg.params) == 1:
             info = msg.params[0]
             self.send_raw(build_irc_msg('PONG', [info], True,
-                self.server.config.hostname))
+                self.network.config.hostname))
 
     def handle_error(self):
         if self.user:
-            self.server.quit_user(self.user, "Internet Server Error")
+            self.network.quit_local_user(self.user, "Internet Server Error")
         asynchat.async_chat.handle_error(self)
 
     def handle_close(self):
@@ -77,17 +86,15 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
     def send_raw(self, msg):
         self.push(msg.encode(encoding="utf-8"))
 
-    def handle_initial_nick(self, msg_str):
-        msg = msg_from_string(msg_str)
+    def handle_nick(self, msg):
         nick = msg.params[0]
-        if nick in self.server.used_nicks:
+        if nick in self.network.used_nicks:
             self.send_numeric(numerics.ERR_NICKNAMEINUSE, [nick], True)
         else:
             self.nick = nick
             self.nick_done = True
 
-    def handle_user(self, msg_str):
-        msg = msg_from_string(msg_str)
+    def handle_user(self, msg):
         if len(msg.params) != 4:
             self.send_numeric(numerics.ERR_NEEDMOREPARAMS, ['USER'], True)
         else:
@@ -95,6 +102,13 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
             self.real_name = real_name
             self.username = username
             self.user_done = True
+
+    def handle_pass(self, msg):
+        """Handles recieving a PASS command."""
+        self.pw = msg.params[0] # TODO others are ignored for now.
+
+    def handle_server(self, msg):
+        self.network.add_server(msg.params[0], msg.params[1], msg.params[2], self.pw, self)
 
     def handle_close(self):
         self.close()
@@ -108,7 +122,7 @@ class IRCCon(asynchat.async_chat): # pragma: no cover
         User.send_numeric instead.
         """
         if not source:
-            source = self.server.config.hostname
+            source = self.network.config.hostname
 
         message = build_irc_msg(
             numeric.num_str,

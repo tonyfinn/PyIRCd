@@ -1,7 +1,7 @@
 from pyircd import numerics
 from pyircd.message import Message
-from pyircd.errors import InsufficientParamsError, ChannelFullError, \
-BadKeyError, NeedChanOpError
+from pyircd.errors import InsufficientParamsError
+from pyircd.ircutils import is_channel_name
 
 # limit, key, ban, exception
 PARAM_MODES = ['l', 'k', 'b', 'e'] 
@@ -10,6 +10,55 @@ SIMPLE_MODES = ['m', 's', 'i', 't', 'n']
 # Op, voice
 USER_MODES = ['o', 'v']
 
+class ChannelError(Exception): pass
+
+class BadKeyError(ChannelError):
+    """Represents a failed password attempt for a room."""
+    def __init__(self, channel):
+        self.channel = channel
+
+class NeedChanOpError(ChannelError):
+    """Represent a lack of permissions for a operation."""
+    def __init__(self, channel):
+        self.channel = channel
+
+class ChannelFullError(ChannelError):
+    """Represent a failed attempt to join a full channel."""
+    def __init__(self, channel):
+        self.channel = channel
+
+class NoSuchChannelError(KeyError, ChannelError):
+    """Represents an attempt to interact with a channel that does not
+    exist."""
+
+    def __init__(self, channel):
+        self.channel = channel
+
+def join_user_to_channel(container, user, channel, key, source):
+    """Add a user to a channel.
+    
+    If the channel does not exist, it will be created and added to the
+    container. The user will be made an op of the newly created channel.
+    If the channel does exist and has a key which does not match
+    that provided in the key parameter, a BadKeyError is raised. If a
+    limit is set on that channel, and the number of users is equal to or
+    greater than the limit, then a ChannelFullError is raised.
+
+    container must be an object with a channels dict.
+    
+    """
+    if channel in container.channels:
+        container.channels[channel].join(user, key)
+    elif is_channel_name(channel):
+        container.channels[channel] = Channel(channel, container)
+        container.channels[channel].join(user, key)
+        container.channels[channel].add_mode_to_user('o', user, 
+            source=source)
+    else:
+        raise InvalidChannelError("Invalid Channel Name")
+
+    container.channels[channel].send_topic(user)
+    container.channels[channel].send_user_list(user)
 
 class Channel:
     def __init__(self, name, server):
@@ -390,6 +439,22 @@ class Channel:
                 self.name
             ]
         )
+
+    def send_njoin_info(self, server):
+        """Send a NJOIN message to server detailing current members.
+
+        server should be a RemoteServer object.
+
+        """
+        user_strings = [self.get_mode_prefix(user) + user.nick for user in
+                self.users]
+        user_string = ','.join(user_strings)
+
+        server.send_msg(Message(
+            'NJOIN',
+            [self.name, user_string],
+            True,
+            self.server))
 
     def get_mode_prefix(self, user):
         """Get a prefix for a user's nick based on their mode.

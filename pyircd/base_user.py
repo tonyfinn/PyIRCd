@@ -1,3 +1,5 @@
+from .message import Message
+
 class BaseUser:
 
     @property

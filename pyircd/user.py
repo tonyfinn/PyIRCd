@@ -1,9 +1,10 @@
-from pyircd.ircutils import *
-from pyircd.message import Message, msg_from_string, InvalidMessageError, \
+from .ircutils import *
+from .message import Message, msg_from_string, InvalidMessageError, \
         irc_msg_split
-from pyircd.errors import NoSuchUserError, NoSuchChannelError, \
-        InsufficientParamsError, BadKeyError, NeedChanOpError, ChannelFullError
-from pyircd import numerics
+from .errors import NoSuchUserError, InsufficientParamsError
+from .channel import NoSuchChannelError, BadKeyError, NeedChanOpError,\
+        ChannelFullError
+from . import numerics
 from .base_user import BaseUser
 
 from functools import wraps
@@ -72,6 +73,7 @@ class User(BaseUser):
         self.username = username
         self.real_name = real_name
         self.server = server
+        self.network = self.server.network
         self.connection = connection
         self.unique_id = connection.unique_id
         self.host = self.connection.address[0]
@@ -82,6 +84,10 @@ class User(BaseUser):
         self.channels = []
         self.modes = []
 
+    @property
+    def hopcount(self):
+        return 0
+    
     def send_opening_numerics(self):
         """ Send the opening numerics for a new connection."""
         self.send_numeric(numerics.RPL_WELCOME, 
@@ -138,7 +144,7 @@ class User(BaseUser):
             if is_channel_name(target):
                 self.server.get_channel(target).msg(self, msg.last)
             else:
-                target_user = self.server.get_user(target)
+                target_user = self.network.get_user(target)
                 target_user.msg(self, target, msg.last)
 
     @handler
