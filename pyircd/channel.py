@@ -61,12 +61,20 @@ def join_user_to_channel(container, user, channel, key, source):
     container.channels[channel].send_user_list(user)
 
 class Channel:
-    def __init__(self, name, server):
+    """This class represents an IRC Channel.
+
+    It contains a number of methods related to channel handling. It should
+    never be created directly. Instead the join_user_to_channel function
+    should be called which will handle joining an existing channel, 
+    or creating a new channel if nessecary.
+
+    """
+    def __init__(self, name, container):
         self.name = name
         self.users = []
         self.usermodes = {}
         self.modes = set()
-        self.server = server
+        self.container = container
         self.topic = None
         self.limit = None
         self.key = None
@@ -135,7 +143,7 @@ class Channel:
                 Message('PART', [self.name, msg], True, user))
         
         if len(self.users) == 0:
-            self.server.remove_channel(self)
+            self.container.remove_channel(self)
 
     def add_mode(self, mode, user, piter=None):
         """Add a mode to a channel.
@@ -253,7 +261,7 @@ class Channel:
         except StopIteration:
             raise InsufficientParamsError('MODE')
 
-        tuser = self.server.get_user(target)
+        tuser = self.container.get_user(target)
         if tuser in self.users:
             self.add_mode_to_user(mode, tuser, source=user)
         else: 
@@ -269,7 +277,7 @@ class Channel:
         except StopIteration:
             raise InsufficientParamsError('MODE')
 
-        tuser = self.server.get_user(target)
+        tuser = self.container.get_user(target)
         if tuser in self.users:
             self.remove_mode_from_user(mode, tuser, user)
         else: 
@@ -385,7 +393,7 @@ class Channel:
     def notify_mode_change(self, mode, change, user, source=None):
 
         if source is None:
-            source = self.server
+            source = self.container
 
         self.send_to_all(Message(
             'MODE', 
@@ -427,7 +435,7 @@ class Channel:
                     self.name,
                     user.username,
                     user.host,
-                    self.server.config.hostname,
+                    self.container.config.hostname,
                     user.nick,
                     mode_prefix,
                     user.real_name
@@ -454,7 +462,7 @@ class Channel:
             'NJOIN',
             [self.name, user_string],
             True,
-            self.server))
+            self.container))
 
     def get_mode_prefix(self, user):
         """Get a prefix for a user's nick based on their mode.

@@ -126,4 +126,10 @@ class IRCNetwork:
     @property
     def source_str(self):
         return self.local_server.source_str
-    
+ 
+    def remove_channel(self, channel):
+        """Remove a channel from the network. """
+        if channel.name[0] == '&':
+            self.local_server.remove_channel(channel)
+        else:
+            self.channels.pop(channel.name, None)
