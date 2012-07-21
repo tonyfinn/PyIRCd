@@ -56,6 +56,12 @@ class IRCNetwork:
                 logging.info("Adding server %s", sname)
                 server = RemoteServer(sname, hopcount, token, self, con)
                 self.servers[sname] = server
+                server.send_msg(Message('PASS', [link['mypw']], False, self))
+                server.send_msg(
+                    Message(
+                        'SERVER',
+                        [self.config.hostname, '0', token], False, self))
+
                 self.send_initial_to_server(server)
             else:
                 logging.info("%s, %s do not match %s, %s",
@@ -68,6 +74,7 @@ class IRCNetwork:
 
     def quit_user(self, user, reason=None):
         """Handle a user quitting the network."""
+        logging.info("User quitting: %s", user.nick)
         for channel in self.channels.values():
             if user in channel:
                 channel.part(user, reason)
